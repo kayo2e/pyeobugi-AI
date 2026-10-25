@@ -22,6 +22,6 @@ export type Recording = {
 
 export const RECORDING_LABELS: Record<RecordingLabel, string> = {
   UPRIGHT: '바른 자세',
-  FORWARD_HEAD: '거북목',
+  FORWARD_HEAD: '거북목(머리 내밀기)',
   LOOKING_DOWN: '고개 숙임',
 }

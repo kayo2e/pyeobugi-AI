@@ -11,9 +11,9 @@ import { useCalibration } from './store'
 const MAX_LOG = 8
 
 const SEVERITY_LABEL = {
-  MILD: '경증 거북목',
-  MODERATE: '중등도 거북목',
-  SEVERE: '중증 거북목',
+  MILD: '목에 부담 주는 자세 (경증)',
+  MODERATE: '목에 부담 주는 자세 (중등도)',
+  SEVERE: '목에 부담 주는 자세 (중증)',
 } as const
 
 const statusOf = ({ engine, error }: DetectionView, calibrated: boolean): string => {

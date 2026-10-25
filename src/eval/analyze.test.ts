@@ -71,6 +71,6 @@ describe('analyze', () => {
     expect(upright.detectionRate).toBeCloseTo(0.98)
     expect(upright.pitchStd).toBeGreaterThan(0.3)
     expect(report.separations[0]).toMatchObject({ against: 'FORWARD_HEAD', balancedAccuracy: 1 })
-    expect(formatReport(report)).toContain('| 거북목 |')
+    expect(formatReport(report)).toContain('| 거북목(머리 내밀기) |')
   })
 })
