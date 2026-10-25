@@ -1,0 +1,84 @@
+{
+  "events": [
+    {
+      "type": "SESSION_START",
+      "payload": {},
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000001",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-24T23:58:05+09:00"
+    },
+    {
+      "type": "CALIBRATION_COMPLETED",
+      "payload": {
+        "isRecalibration": false
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000002",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-24T23:58:09+09:00"
+    },
+    {
+      "type": "POSTURE_BAD",
+      "payload": {
+        "severity": "MODERATE"
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000003",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-24T23:58:30+09:00"
+    },
+    {
+      "type": "USAGE_SEGMENT",
+      "payload": {
+        "startedAt": "2026-10-24T23:58:10+09:00",
+        "endedAt": "2026-10-24T23:59:10+09:00",
+        "durationSec": 60,
+        "badDurationSec": 39
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000004",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-24T23:59:10+09:00"
+    },
+    {
+      "type": "USAGE_SEGMENT",
+      "payload": {
+        "startedAt": "2026-10-24T23:59:10+09:00",
+        "endedAt": "2026-10-25T00:00:00+09:00",
+        "durationSec": 50,
+        "badDurationSec": 50
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000005",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-25T00:00:00+09:00"
+    },
+    {
+      "type": "USAGE_SEGMENT",
+      "payload": {
+        "startedAt": "2026-10-25T00:00:00+09:00",
+        "endedAt": "2026-10-25T00:01:00+09:00",
+        "durationSec": 60,
+        "badDurationSec": 20
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000006",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-25T00:01:00+09:00"
+    },
+    {
+      "type": "USAGE_SEGMENT",
+      "payload": {
+        "startedAt": "2026-10-25T00:01:00+09:00",
+        "endedAt": "2026-10-25T00:01:05+09:00",
+        "durationSec": 5,
+        "badDurationSec": 0
+      },
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000007",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-25T00:01:05+09:00"
+    },
+    {
+      "type": "SESSION_END",
+      "payload": {},
+      "eventId": "b1c2d3e4-0000-4000-8000-000000000008",
+      "sessionId": "a9a9a9a9-0000-4000-8000-0000000000aa",
+      "occurredAt": "2026-10-25T00:01:31+09:00"
+    }
+  ]
+}
