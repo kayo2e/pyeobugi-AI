@@ -41,3 +41,31 @@
 - Persistent event queue in main (10 s / 20 events batches, 5,000 cap, backoff) and `POST /api/events` client.
 - MSW mock for `/api/events` and `/api/reports/summary`, report screen with TanStack Query.
 - Custom `app://` protocol so packaged builds can load the model and wasm.
+
+## 2026-10-25 — First camera run fixes
+
+### Done
+
+- Face was never detected on the first real run: the MediaPipe CPU delegate returns zero detections when given a
+  `<video>` element directly (GPU delegate and canvas input both work on the same frame). Frames are now copied to
+  a 320x240 canvas before `detectForVideo`.
+- Fixed a camera stream leak under React StrictMode: the stream opened by the discarded first effect run was never
+  stopped.
+
+### Notes
+
+Measured in the dev app on a MacBook (30 runs, 320x240, BlazeFace short-range):
+
+| Path | Detected | Median | p90 | First call |
+| --- | --- | --- | --- | --- |
+| CPU delegate, canvas input | 30/30 | 10.4 ms | 13.2 ms | 39 ms |
+| GPU delegate, video input | 30/30 | 9.9 ms | 11.8 ms | 168 ms |
+| CPU delegate, video input | 0/30 | – | – | – |
+
+- At 1 Hz this is about 1% of one core for inference. CPU stays the default since the per-call cost is the same.
+- Keypoint pitch while seated and typing ranged 6.5°–13.4° over 2 s, which looks noisy relative to the 1.5°
+  pitch deadzone. Unclear yet whether that is head movement or estimate noise.
+
+### Next
+
+- Record a short labeled session (upright vs. forward head) to measure pitch noise and tune smoothing/weights.

@@ -44,9 +44,13 @@ export const useDetection = (video: HTMLVideoElement | null) => {
 
     Promise.all([openCamera(video), createFaceDetector()])
       .then(([s, d]) => {
+        if (cancelled) {
+          closeCamera(s)
+          d.close()
+          return
+        }
         stream = s
         detector = d
-        if (cancelled) return
         loop()
       })
       .catch((e: unknown) => setView((v) => ({ ...v, error: e instanceof Error ? e.message : String(e) })))

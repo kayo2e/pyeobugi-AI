@@ -17,6 +17,20 @@ export const createFaceDetector = async (): Promise<FaceDetector> => {
   })
 }
 
+let frame: CanvasRenderingContext2D | null = null
+
+// The CPU delegate returns no detections when given a <video> element directly, so copy the frame to a canvas first
+const captureFrame = (video: HTMLVideoElement, width: number, height: number): HTMLCanvasElement => {
+  if (!frame || frame.canvas.width !== width || frame.canvas.height !== height) {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    frame = canvas.getContext('2d', { willReadFrequently: true })!
+  }
+  frame.drawImage(video, 0, 0, width, height)
+  return frame.canvas
+}
+
 const toPixels = (k: Keypoint | undefined, width: number, height: number): Point | null =>
   k ? { x: k.x * width, y: k.y * height } : null
 
@@ -30,7 +44,7 @@ export const detectFace = (detector: FaceDetector, video: HTMLVideoElement): Fac
   const { videoWidth: width, videoHeight: height } = video
   if (width === 0 || height === 0) return null
 
-  const face = largestFace(detector.detectForVideo(video, performance.now()).detections)
+  const face = largestFace(detector.detectForVideo(captureFrame(video, width, height), performance.now()).detections)
   if (!face?.boundingBox) return null
 
   const [rightEye, leftEye, noseTip, , rightEar, leftEar] = face.keypoints.map((k) => toPixels(k, width, height))
