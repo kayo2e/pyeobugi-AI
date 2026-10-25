@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "accepted": 8,
+    "duplicated": 0,
+    "rejected": []
+  }
+}

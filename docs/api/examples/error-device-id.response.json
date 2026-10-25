@@ -1,0 +1,8 @@
+{
+  "status": 400,
+  "body": {
+    "code": "DEVICE_ID_INVALID",
+    "message": "X-Device-Id must be a UUID v4",
+    "traceId": "req-1"
+  }
+}

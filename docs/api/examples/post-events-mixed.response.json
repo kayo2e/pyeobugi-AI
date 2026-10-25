@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "body": {
+    "accepted": 1,
+    "duplicated": 1,
+    "rejected": [
+      {
+        "index": 2,
+        "code": "FORBIDDEN_FIELD",
+        "eventId": "b1c2d3e4-0000-4000-8000-000000000010"
+      }
+    ]
+  }
+}
