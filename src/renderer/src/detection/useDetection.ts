@@ -4,7 +4,7 @@ import { initialEngineState, nextIntervalMs, resetPosture, stepEngine } from '..
 import type { EngineState, Transition } from '../../../shared/posture/engine'
 import type { RecordingLabel } from '../../../shared/recording'
 import { useCalibration } from '../store'
-import { closeCamera, openCamera } from './camera'
+import { attachCamera, closeCamera, requestCamera } from './camera'
 import { createFaceDetector, detectFace } from './face-detector'
 import type { FaceDetection } from './face-detector'
 import { finishRecording, RECORD_INTERVAL_MS, toRecordedFace } from './recorder'
@@ -83,8 +83,9 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       engineRef.current = initialEngineState
     })
 
-    Promise.all([openCamera(video), createFaceDetector()])
-      .then(([s, d]) => {
+    // Attach only after confirming this run is still live, or a discarded StrictMode run could swap in its stream
+    Promise.all([requestCamera(), createFaceDetector()])
+      .then(async ([s, d]) => {
         if (cancelled) {
           closeCamera(s)
           d.close()
@@ -92,7 +93,8 @@ export const useDetection = (video: HTMLVideoElement | null) => {
         }
         stream = s
         detector = d
-        loop()
+        await attachCamera(video, s)
+        if (!cancelled) loop()
       })
       .catch((e: unknown) => setView((v) => ({ ...v, error: e instanceof Error ? e.message : String(e) })))
 

@@ -1,5 +1,5 @@
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000
-const DAY_MS = 24 * 60 * 60 * 1000
+export const KST_OFFSET_MS = 9 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 

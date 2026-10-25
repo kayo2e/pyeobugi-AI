@@ -1,4 +1,4 @@
-import type { HttpResult, PostEventsResponse } from '../../shared/api'
+import type { HttpResult, PostEventsResponse, RejectedEvent } from '../../shared/api'
 import type { AppEvent } from '../../shared/events'
 
 export const QUEUE_CAP = 5000
@@ -18,13 +18,17 @@ export const removeEvents = (queue: AppEvent[], sent: AppEvent[]): AppEvent[] =>
 export const backoffMs = (attempt: number): number => Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** attempt)
 
 export type Outcome =
-  | { kind: 'sent'; response: PostEventsResponse }
+  | { kind: 'sent'; rejected: RejectedEvent[] }
   | { kind: 'discard'; reason: string }
   | { kind: 'split' }
   | { kind: 'retry'; afterMs: number | null; reason: string }
 
 export const classify = (result: HttpResult<PostEventsResponse>, batchSize: number): Outcome => {
-  if (result.kind === 'ok') return { kind: 'sent', response: result.body }
+  if (result.kind === 'ok') {
+    // A 2xx means the batch was stored; tolerate an empty or malformed body instead of resending forever
+    const rejected = (result.body as Partial<PostEventsResponse> | null)?.rejected
+    return { kind: 'sent', rejected: Array.isArray(rejected) ? rejected : [] }
+  }
   if (result.kind === 'network') return { kind: 'retry', afterMs: null, reason: result.message }
 
   const reason = `${result.status} ${result.body?.code ?? ''} traceId=${result.body?.traceId ?? '-'}`

@@ -135,12 +135,13 @@ Measured in the dev app on a MacBook (30 runs, 320x240, BlazeFace short-range):
 | Forward head | 1.76 | 6.7° | 84.8% |
 | Looking down | 3.62 | 8.7° | 99.4% |
 
-Engine replay with the adaptive schedule and current constants:
+Engine replay with the adaptive schedule and current constants (corrected after the replay timing fix in the
+code review entry below; the first version reported 0.0% / 78.4% from a sample lookup bug):
 
 | Label | Judged bad | POSTURE_BAD events | Inference rate |
 | --- | --- | --- | --- |
-| Upright | 0.0% | 0 | 1.16 Hz |
-| Forward head | 78.4% | 2 | 1.19 Hz |
+| Upright | 4.2% | 1 | 1.23 Hz |
+| Forward head | 77.5% | 2 | 1.18 Hz |
 | Looking down | 95.0% | 2 | 1.17 Hz |
 
 ### Notes
@@ -156,3 +157,32 @@ Engine replay with the adaptive schedule and current constants:
 ### Next
 
 - More people and webcams, then revisit the 3 s hold (it caps forward-head coverage) and distance handling.
+
+## 2026-10-25 — Code review fixes before the first main release
+
+### Done
+
+Reviewed `main...dev` (49 commits). Fixed:
+
+- Sender crashed and resent forever on a 2xx with an empty or non-JSON body; 2xx now always counts as sent.
+- Device ID and queue writes could fail on a fresh install before Electron creates the user data directory.
+- A discarded StrictMode effect run could attach its stream to the video and then stop it, leaving detection on a
+  dead track. The stream is attached only after confirming the run is live.
+- The usage tracker accepted transitions while stopped; a segment opened just before suspend rolled over the whole
+  sleep on resume (reproduced: 480 segments for 8 h, now 0).
+- Toast dismiss timer restarted on every parent re-render.
+- Engine replay looked up samples by `t / intervalMs`, but real spacing is about 215 ms, so later lookups drifted
+  and the tail replayed the last sample. Now a binary search on recorded time.
+- Duplicate UUID regex and KST constants in the mock API; analyze script stack trace with no recordings folder.
+
+Left as is, with reasons:
+
+- Presence loss is backdated up to 3 s; when a minute boundary falls in that window, up to 3 s of absence is
+  counted in the closed segment. Fixing it needs delayed segment closing for a bounded 3 s error.
+- The queue file is rewritten on every change. At 1-3 events per minute this is small; only a reconnect after a
+  long offline period rewrites it repeatedly.
+
+### Notes
+
+- With the replay fix, the only upright false alarm (1 event, 8.3% of that session) is in the session recorded
+  farther back without recalibrating, the distance-drift risk noted in the accuracy entry.

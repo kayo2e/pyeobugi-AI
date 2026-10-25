@@ -23,7 +23,7 @@ export const createSender = (store: QueueStore, postEvents: PostEvents, now = ()
     const outcome = classify(await postEvents(batch), batch.length)
     switch (outcome.kind) {
       case 'sent':
-        outcome.response.rejected.forEach((r) => console.error('[events] rejected', r))
+        outcome.rejected.forEach((r) => console.error('[events] rejected', r))
         update(removeEvents(queue, batch))
         attempt = 0
         return 'done'
@@ -50,9 +50,11 @@ export const createSender = (store: QueueStore, postEvents: PostEvents, now = ()
   }
 
   const send = (): Promise<void> => {
-    inFlight ??= drain().finally(() => {
-      inFlight = null
-    })
+    inFlight ??= drain()
+      .catch((e: unknown) => console.error('[events] send failed', e))
+      .finally(() => {
+        inFlight = null
+      })
     return inFlight
   }
 
