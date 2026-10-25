@@ -35,6 +35,7 @@ describe('event queue', () => {
     const body = { accepted: 1, duplicated: 0, rejected: [] }
     const ok: HttpResult<PostEventsResponse> = { kind: 'ok', status: 200, body }
     expect(classify(ok, 1).kind).toBe('sent')
+    expect(classify({ kind: 'ok', status: 204, body: null as never }, 3)).toEqual({ kind: 'sent', rejected: [] })
     expect(classify(error(400, 'INVALID_REQUEST'), 5).kind).toBe('discard')
     expect(classify(error(400, 'DEVICE_ID_INVALID'), 5).kind).toBe('retry')
     expect(classify(error(413, 'PAYLOAD_TOO_LARGE'), 5).kind).toBe('split')
