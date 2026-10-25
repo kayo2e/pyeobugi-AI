@@ -95,7 +95,16 @@ export const stepEngine = (state: EngineState, sample: Sample, baseline: Baselin
   const sizes = pushWindow(state.sizes, sample.face.size)
   const pitch = mean(pitches)
   const size = mean(sizes)
-  const seen: EngineState = { ...state, present: true, lastSeenAt: sample.at, lostAt: null, pitches, sizes, pitch, size }
+  const seen: EngineState = {
+    ...state,
+    present: true,
+    lastSeenAt: sample.at,
+    lostAt: null,
+    pitches,
+    sizes,
+    pitch,
+    size,
+  }
 
   if (baseline === null) return { state: { ...seen, score: 0 }, transitions }
 
