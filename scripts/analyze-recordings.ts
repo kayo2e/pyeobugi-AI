@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { analyze } from '../src/eval/analyze'
@@ -10,12 +10,13 @@ const defaultDir = (): string =>
     ? join(process.env['APPDATA'] ?? '', 'pyeobugi-ai', 'recordings')
     : join(homedir(), 'Library', 'Application Support', 'pyeobugi-ai', 'recordings')
 
-const expand = (path: string): string[] =>
-  statSync(path).isDirectory()
-    ? readdirSync(path)
-        .filter((f) => f.endsWith('.json'))
-        .map((f) => join(path, f))
-    : [path]
+const expand = (path: string): string[] => {
+  if (!existsSync(path)) return []
+  if (!statSync(path).isDirectory()) return [path]
+  return readdirSync(path)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => join(path, f))
+}
 
 const paths = (process.argv.length > 2 ? process.argv.slice(2) : [defaultDir()]).flatMap(expand)
 if (paths.length === 0) {
