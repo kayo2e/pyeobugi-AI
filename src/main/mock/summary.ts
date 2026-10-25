@@ -1,9 +1,6 @@
 import type { Mood, ReportPeriod, ReportSummary } from '../../shared/api'
 import type { AppEvent } from '../../shared/events'
-import { kstDayStartMs, toKstIso } from '../../shared/time/kst'
-
-const DAY_MS = 24 * 60 * 60_000
-const KST_OFFSET_MS = 9 * 60 * 60_000
+import { DAY_MS, KST_OFFSET_MS, kstDayStartMs, toKstIso } from '../../shared/time/kst'
 
 export const kstWeekStartMs = (ms: number): number => {
   const weekday = new Date(ms + KST_OFFSET_MS).getUTCDay()
