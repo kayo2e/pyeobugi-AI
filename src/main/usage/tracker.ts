@@ -25,7 +25,11 @@ export const createUsageTracker = (sessionId: string, emit: (event: AppEvent) =>
     start: () => {
       timer ??= setInterval(() => commit(tick(state, Date.now())), TICK_MS)
     },
-    transitions: (transitions: Transition[]) => transitions.forEach((t) => commit(applyTransition(state, t))),
+    transitions: (transitions: Transition[]) => {
+      // While stopped (suspend, reload) no tick runs, so a segment opened now would later roll over the whole gap
+      if (timer === null) return
+      transitions.forEach((t) => commit(applyTransition(state, t)))
+    },
     flush: (now = Date.now()) => commit(flush(state, now)),
     stop: (now = Date.now()) => {
       if (timer) clearInterval(timer)
