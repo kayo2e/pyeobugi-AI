@@ -2,10 +2,13 @@ import type { FaceDetector } from '@mediapipe/tasks-vision'
 import { useEffect, useRef, useState } from 'react'
 import { initialEngineState, nextIntervalMs, resetPosture, stepEngine } from '../../../shared/posture/engine'
 import type { EngineState, Transition } from '../../../shared/posture/engine'
+import type { RecordingLabel } from '../../../shared/recording'
 import { useCalibration } from '../store'
 import { closeCamera, openCamera } from './camera'
 import { createFaceDetector, detectFace } from './face-detector'
 import type { FaceDetection } from './face-detector'
+import { finishRecording, RECORD_INTERVAL_MS, toRecordedFace } from './recorder'
+import type { ActiveRecording, RecordStatus } from './recorder'
 
 export type HistoryPoint = { at: number; pitch: number | null; score: number; bad: boolean; intervalMs: number }
 
@@ -28,7 +31,9 @@ const send = (transitions: Transition[]): void => {
 export const useDetection = (video: HTMLVideoElement | null) => {
   const engineRef = useRef<EngineState>(initialEngineState)
   const historyRef = useRef<HistoryPoint[]>([])
+  const recordingRef = useRef<ActiveRecording | null>(null)
   const [view, setView] = useState<DetectionView>(initialView)
+  const [recordStatus, setRecordStatus] = useState<RecordStatus>({ phase: 'idle' })
 
   useEffect(() => {
     if (!video) return
@@ -36,6 +41,25 @@ export const useDetection = (video: HTMLVideoElement | null) => {
     let timer: number | undefined
     let stream: MediaStream | null = null
     let detector: FaceDetector | null = null
+
+    // Recording samples at a fixed rate so noise and separation are measured independently of the adaptive schedule
+    const record = (now: number, face: FaceDetection | null): boolean => {
+      const active = recordingRef.current
+      if (!active) return false
+      active.samples.push({ t: now - active.startedAt, face: toRecordedFace(face) })
+      active.video = { width: video.videoWidth, height: video.videoHeight }
+      const { label, startedAt, durationMs, samples } = active
+      if (now - startedAt < durationMs) {
+        setRecordStatus({ phase: 'recording', label, endsAt: startedAt + durationMs, count: samples.length })
+        return true
+      }
+      recordingRef.current = null
+      window.pyeobugi
+        .saveRecording(finishRecording(active))
+        .then((path) => setRecordStatus({ phase: 'saved', label, count: samples.length, path }))
+        .catch((e: unknown) => setRecordStatus({ phase: 'error', message: e instanceof Error ? e.message : String(e) }))
+      return false
+    }
 
     const loop = () => {
       if (cancelled || !detector) return
@@ -45,7 +69,7 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       const { state, transitions } = stepEngine(engineRef.current, { at: now, face: face?.sample ?? null }, baseline)
       engineRef.current = state
       send(transitions)
-      const intervalMs = nextIntervalMs(state, now)
+      const intervalMs = record(now, face) ? RECORD_INTERVAL_MS : nextIntervalMs(state, now)
       const pitch = state.present && state.pitch !== null ? state.pitch - (baseline?.pitch ?? 0) : null
       historyRef.current = [
         ...historyRef.current.filter((p) => now - p.at <= HISTORY_MS),
@@ -93,5 +117,18 @@ export const useDetection = (video: HTMLVideoElement | null) => {
     return true
   }
 
-  return { view, calibrate }
+  const startRecording = (label: RecordingLabel, durationMs: number): void => {
+    if (!video || recordingRef.current) return
+    recordingRef.current = {
+      label,
+      startedAt: Date.now(),
+      durationMs,
+      baseline: useCalibration.getState().baseline,
+      video: { width: 0, height: 0 },
+      samples: [],
+    }
+    setRecordStatus({ phase: 'recording', label, endsAt: Date.now() + durationMs, count: 0 })
+  }
+
+  return { view, calibrate, recordStatus, startRecording }
 }

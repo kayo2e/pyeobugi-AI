@@ -61,6 +61,22 @@ body {
   height: 200px;
 }
 
+.record {
+  width: 100%;
+}
+
+.record-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.record-status {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: GrayText;
+}
+
 .demo-toggle {
   display: flex;
   align-items: center;
