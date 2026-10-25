@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, powerMonitor, session, systemPreferences } from 'electron'
+import { app, BrowserWindow, ipcMain, powerMonitor, session, shell, systemPreferences } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import type { AppEvent } from '../shared/events'
 import { IPC } from '../shared/ipc'
 import type { Transition } from '../shared/posture/engine'
+import type { Recording } from '../shared/recording'
 import { createApiClient } from './api/client'
 import { loadOrCreateDeviceId } from './device'
+import { recordingsDir, saveRecording } from './recordings'
 import { toReportResult } from './report'
 import { createFileQueueStore } from './queue/queue-store'
 import { createSender } from './queue/sender'
@@ -35,7 +37,7 @@ const tracker = createUsageTracker(randomUUID(), emit)
 const createWindow = (): void => {
   mainWindow = new BrowserWindow({
     width: 440,
-    height: 820,
+    height: 900,
     title: '펴부기',
     webPreferences: { preload: join(__dirname, '../preload/index.js'), backgroundThrottling: false },
   })
@@ -68,6 +70,11 @@ ipcMain.handle(IPC.getReport, async () => {
   const result = toReportResult(await api.getSummary())
   if (!result.ok) console.error('[report] failed', result.status, result.code, `traceId=${result.traceId ?? '-'}`)
   return result
+})
+
+ipcMain.handle(IPC.saveRecording, (_event, recording: Recording) => saveRecording(userData, recording))
+ipcMain.handle(IPC.openRecordings, async () => {
+  await shell.openPath(recordingsDir(userData))
 })
 
 app.whenReady().then(async () => {

@@ -18,6 +18,8 @@ const api: PyeobugiApi = {
   onResetEngine: (listener) => subscribe(IPC.resetEngine, listener),
   onEvent: (listener) => subscribe<[AppEvent]>(IPC.eventEmitted, listener),
   getReport: () => ipcRenderer.invoke(IPC.getReport),
+  saveRecording: (recording) => ipcRenderer.invoke(IPC.saveRecording, recording),
+  openRecordings: () => ipcRenderer.invoke(IPC.openRecordings),
 }
 
 contextBridge.exposeInMainWorld('pyeobugi', api)

@@ -93,3 +93,24 @@ Measured in the dev app on a MacBook (30 runs, 320x240, BlazeFace short-range):
   are kept for reference and handed over to the frontend and backend.
 - In a live demo session, the chart showed short head drops (<3 s) staying below the bad-posture hold, and 83
   detections in 60 s with pending windows, versus 450 at the prototype's fixed 7.5 Hz.
+
+## 2026-10-25 — Recording tool for accuracy evaluation
+
+### Done
+
+- Record panel in demo mode: label (upright / forward head / looking down) and 30 or 60 s, sampled at a fixed
+  5 Hz. Saves keypoints, box, pitch and face size to `userData/recordings/*.json`; no image data.
+- `npm run analyze`: per-label pitch noise and face detection rate, separation from upright (Cohen's d, best
+  threshold, balanced accuracy), and an engine replay that follows the adaptive schedule over the recording.
+
+### Notes
+
+- First real 30 s "upright" recording (unlabeled behaviour, so indicative only): pitch std 14.9°, frame-to-frame
+  jitter 7.4°, 99% face detection. The first 8 s were stable within -4°..5°; later spread is likely movement.
+- One sample hit -90°: the asin input saturated, most likely from a turned head shrinking the eye distance.
+  Such samples should probably be rejected, but that changes judgement and waits for labeled data.
+
+### Next
+
+- Record labeled sessions (2-3 per label, varied lighting and distance) and run `npm run analyze`.
+- Decide on outlier rejection, smoothing window and score weights from those numbers.

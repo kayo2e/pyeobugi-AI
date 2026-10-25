@@ -3,6 +3,7 @@ import type { AppEvent } from '../../shared/events'
 import { severityOf } from '../../shared/posture/score'
 import { useDetection } from './detection/useDetection'
 import { FaceOverlay, HistoryChart } from './demo/DemoPanel'
+import { RecordPanel } from './demo/RecordPanel'
 import { ReportView } from './report/ReportView'
 import type { DetectionView } from './detection/useDetection'
 import { useCalibration } from './store'
@@ -39,7 +40,7 @@ export const App = () => {
   const [tab, setTab] = useState<'detect' | 'report'>('detect')
   const [demo, setDemo] = useState(false)
   const calibrated = useCalibration((s) => s.baseline !== null)
-  const { view, calibrate } = useDetection(video)
+  const { view, calibrate, recordStatus, startRecording } = useDetection(video)
 
   useEffect(() => window.pyeobugi.onEvent((e) => setLog((prev) => [e, ...prev].slice(0, MAX_LOG))), [])
 
@@ -74,6 +75,7 @@ export const App = () => {
             {calibrated ? '기준 다시 잡기' : '기준 잡기'}
           </button>
           {demo && <HistoryChart view={view} />}
+          {demo && <RecordPanel status={recordStatus} onStart={startRecording} />}
           <ol className="log">
             {log.map((e) => (
               <li key={e.eventId}>{describe(e)}</li>
