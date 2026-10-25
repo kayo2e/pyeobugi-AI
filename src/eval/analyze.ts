@@ -112,7 +112,18 @@ export const separation = (upright: number[], other: number[], against: Recordin
   return { against, cohensD, bestThreshold: best.threshold, balancedAccuracy: best.accuracy }
 }
 
-const nearestIndex = (r: Recording, t: number): number => Math.min(r.samples.length - 1, Math.round(t / r.intervalMs))
+// Real spacing drifts above intervalMs (timer delay plus inference), so search by recorded time instead of index math
+export const nearestIndex = (r: Recording, t: number): number => {
+  let lo = 0
+  let hi = r.samples.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (r.samples[mid]!.t < t) lo = mid + 1
+    else hi = mid
+  }
+  const prev = r.samples[lo - 1]
+  return prev && t - prev.t <= r.samples[lo]!.t - t ? lo - 1 : lo
+}
 
 // Replays the engine with its own adaptive schedule, picking the recorded sample nearest to each requested time
 export const replay = (r: Recording, baseline: Baseline): Omit<ReplayStats, 'label'> => {

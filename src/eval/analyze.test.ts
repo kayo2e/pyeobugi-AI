@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Recording, RecordingLabel } from '../shared/recording'
-import { analyze, episodeDurations, replay, resolveBaseline, separation } from './analyze'
+import { analyze, episodeDurations, nearestIndex, replay, resolveBaseline, separation } from './analyze'
 import { formatReport } from './format'
 
 const seeded = (seed: number) => () => {
@@ -63,6 +63,12 @@ describe('analyze', () => {
     expect(forward.postureBadCount).toBe(1)
     expect(forward.badFraction).toBeGreaterThan(0.8)
     expect(upright.inferenceHz).toBeCloseTo(1, 0)
+  })
+
+  it('finds samples by recorded time when spacing drifts from the nominal interval', () => {
+    const r = recording('UPRIGHT', 0, 0, 2)
+    r.samples.forEach((s, i) => (s.t = i * 230))
+    expect([0, 229, 1000, 2070, 99_000].map((t) => nearestIndex(r, t))).toEqual([0, 1, 4, 9, 9])
   })
 
   it('measures how long each look-down lasts', () => {
