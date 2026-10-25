@@ -1,4 +1,4 @@
-export type RecordingLabel = 'UPRIGHT' | 'FORWARD_HEAD' | 'LOOKING_DOWN'
+export type RecordingLabel = 'UPRIGHT' | 'FORWARD_HEAD' | 'LOOKING_DOWN' | 'NOTE_TAKING'
 
 export type RecordedFace = {
   box: { x: number; y: number; width: number; height: number }
@@ -24,4 +24,5 @@ export const RECORDING_LABELS: Record<RecordingLabel, string> = {
   UPRIGHT: '바른 자세',
   FORWARD_HEAD: '거북목(머리 내밀기)',
   LOOKING_DOWN: '고개 숙임',
+  NOTE_TAKING: '필기·자료 보기',
 }

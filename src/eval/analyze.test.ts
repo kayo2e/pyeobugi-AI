@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Recording, RecordingLabel } from '../shared/recording'
-import { analyze, replay, resolveBaseline, separation } from './analyze'
+import { analyze, episodeDurations, replay, resolveBaseline, separation } from './analyze'
 import { formatReport } from './format'
 
 const seeded = (seed: number) => () => {
@@ -63,6 +63,15 @@ describe('analyze', () => {
     expect(forward.postureBadCount).toBe(1)
     expect(forward.badFraction).toBeGreaterThan(0.8)
     expect(upright.inferenceHz).toBeCloseTo(1, 0)
+  })
+
+  it('measures how long each look-down lasts', () => {
+    const r = recording('NOTE_TAKING', 0, 0, 20)
+    r.samples.forEach((s, i) => {
+      const t = i * 200
+      if (s.face) s.face.pitch = (t >= 5000 && t < 7000) || (t >= 12_000 && t < 18_000) ? 20 : 0
+    })
+    expect(episodeDurations(r, { pitch: 0, size: 0.3 })).toEqual([2, 6])
   })
 
   it('reports detection rate and noise per label', () => {

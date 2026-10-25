@@ -1,3 +1,4 @@
+import { TIMING } from '../shared/posture/engine'
 import { RECORDING_LABELS } from '../shared/recording'
 import type { Report } from './analyze'
 
@@ -48,6 +49,21 @@ export const formatReport = (report: Report): string =>
         pct(r.badFraction),
         String(r.postureBadCount),
         `${num(r.inferenceHz)} Hz`,
+      ]),
+    ),
+    '',
+    '### Episodes above the entry score (input for the hold time)',
+    `Raw 5 Hz scores, stricter than the engine's smoothing (see replay for actual alerts). Over hold = episodes long`,
+    `enough to alert with the current ${TIMING.enterAfterMs / 1000} s hold.`,
+    table(
+      ['Label', 'Episodes', 'Median (s)', 'p90 (s)', 'Max (s)', 'Over hold'],
+      report.episodes.map((e) => [
+        RECORDING_LABELS[e.label],
+        String(e.count),
+        num(e.medianSec, 1),
+        num(e.p90Sec, 1),
+        num(e.maxSec, 1),
+        String(e.overHold),
       ]),
     ),
   ].join('\n')
