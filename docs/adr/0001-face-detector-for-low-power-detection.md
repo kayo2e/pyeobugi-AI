@@ -8,15 +8,15 @@
 - The app runs all day on laptops, so heat and battery drain are primary constraints, not just accuracy.
 - The only outputs the server needs are face presence, bad-posture state with a 3-level severity, and bad-posture
   duration in whole seconds per 1-minute segment. No landmark, angle or image leaves the device.
-- The Swift prototype (`m2nwo079/turtle-neck`) showed that head pitch plus a gated face-size signal relative to a
-  personal baseline is enough to separate good and forward-head posture from a front-facing webcam.
+- The Swift prototype (`m2nwo079/turtle-neck`) scores head pitch plus a gated face-size signal relative to a
+  personal baseline from a front-facing webcam. Its accuracy has not been measured.
 - The prototype's MediaPipe branch ran Pose Landmarker and Face Landmarker every animation frame, loaded from a CDN.
 
 ## Options
 
 | Option | Model size | Pitch signal | Notes |
 | --- | --- | --- | --- |
-| Pose Landmarker + Face Landmarker | ~5-9 MB + ~3.7 MB | Transform matrix | Heaviest; shoulder points unused by the score |
+| Pose Landmarker + Face Landmarker | ~5-9 MB + ~3.7 MB | Transform matrix | Heaviest; adds a shoulder-relative head height signal |
 | Face Landmarker only | ~3.7 MB | Transform matrix (accurate) | 478 landmarks we do not need |
 | **Face Detector (BlazeFace short-range)** | **~0.23 MB** | Approximated from 6 keypoints | Lightest; pitch is an estimate |
 | Apple Vision / native per OS | 0 (OS) | Native pitch | Not cross-platform for Electron |
