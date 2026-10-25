@@ -18,3 +18,29 @@ body {
 .status {
   color: GrayText;
 }
+
+.status.bad {
+  color: #e8590c;
+  font-weight: 600;
+}
+
+.metrics {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.camera {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.log {
+  width: 100%;
+  margin: 0;
+  padding-left: 20px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: GrayText;
+}
