@@ -17,6 +17,7 @@ const api: PyeobugiApi = {
   calibrationCompleted: (isRecalibration) => ipcRenderer.send(IPC.calibrated, isRecalibration),
   onResetEngine: (listener) => subscribe(IPC.resetEngine, listener),
   onEvent: (listener) => subscribe<[AppEvent]>(IPC.eventEmitted, listener),
+  getReport: () => ipcRenderer.invoke(IPC.getReport),
 }
 
 contextBridge.exposeInMainWorld('pyeobugi', api)

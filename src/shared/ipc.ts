@@ -1,3 +1,4 @@
+import type { ReportResult } from './api'
 import type { AppEvent } from './events'
 import type { Transition } from './posture/engine'
 
@@ -6,6 +7,7 @@ export const IPC = {
   calibrated: 'posture:calibrated',
   resetEngine: 'posture:reset-engine',
   eventEmitted: 'events:emitted',
+  getReport: 'report:get',
 } as const
 
 export type PyeobugiApi = {
@@ -13,4 +15,5 @@ export type PyeobugiApi = {
   calibrationCompleted: (isRecalibration: boolean) => void
   onResetEngine: (listener: () => void) => () => void
   onEvent: (listener: (event: AppEvent) => void) => () => void
+  getReport: () => Promise<ReportResult>
 }
