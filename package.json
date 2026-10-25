@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "postinstall": "node scripts/copy-mediapipe.mjs",
-    "analyze": "tsx scripts/analyze-recordings.ts"
+    "analyze": "tsx scripts/analyze-recordings.ts",
+    "api-examples": "tsx scripts/generate-api-examples.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.0",
