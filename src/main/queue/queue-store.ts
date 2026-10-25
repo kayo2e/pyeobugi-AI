@@ -1,4 +1,4 @@
-import { readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AppEvent } from '../../shared/events'
 
@@ -17,6 +17,7 @@ export const createFileQueueStore = (dir: string): QueueStore => {
     },
     save: (queue) => {
       // Write-then-rename so a crash mid-write never leaves a truncated queue
+      mkdirSync(dir, { recursive: true })
       writeFileSync(`${file}.tmp`, JSON.stringify(queue))
       renameSync(`${file}.tmp`, file)
     },
