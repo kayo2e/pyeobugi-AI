@@ -1,5 +1,6 @@
-import { initialEngineState, nextIntervalMs, stepEngine } from '../shared/posture/engine'
+import { initialEngineState, nextIntervalMs, stepEngine, TIMING } from '../shared/posture/engine'
 import type { FaceSample } from '../shared/posture/engine'
+import { BAD_ENTER_SCORE, postureScore } from '../shared/posture/score'
 import type { Baseline } from '../shared/posture/score'
 import type { Recording, RecordingLabel } from '../shared/recording'
 
@@ -28,12 +29,23 @@ export type ReplayStats = {
   inferenceHz: number
 }
 
+export type EpisodeStats = {
+  label: RecordingLabel
+  count: number
+  medianSec: number
+  p90Sec: number
+  maxSec: number
+  overHold: number
+}
+
 export type Report = {
   baselineSource: 'calibrated' | 'upright-mean'
   labels: LabelStats[]
   separations: Separation[]
   replays: ReplayStats[]
+  episodes: EpisodeStats[]
 }
+
 
 type Delta = { pitch: number; size: number }
 
@@ -126,6 +138,45 @@ export const replay = (r: Recording, baseline: Baseline): Omit<ReplayStats, 'lab
   }
 }
 
+const percentile = (sorted: number[], q: number): number =>
+  sorted.length === 0 ? Number.NaN : sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))]!
+
+const median3 = (a: number, b: number, c: number): number => Math.max(Math.min(a, b), Math.min(Math.max(a, b), c))
+
+// Lengths of continuous stretches above the entry score; a centered 3-sample median fills single-frame dips
+// without shifting episode edges the way a trailing mean would
+export const episodeDurations = (r: Recording, baseline: Baseline): number[] => {
+  const scores = r.samples.map((_, i) => {
+    const s = faceSample(r, i)
+    return s ? postureScore(s.pitch, s.size, baseline) : Number.NEGATIVE_INFINITY
+  })
+  const durations: number[] = []
+  let start: number | null = null
+  scores.forEach((score, i) => {
+    const above = median3(scores[i - 1] ?? score, score, scores[i + 1] ?? score) >= BAD_ENTER_SCORE
+    const t = r.samples[i]!.t
+    if (above && start === null) start = t
+    if (!above && start !== null) {
+      durations.push(t - start)
+      start = null
+    }
+  })
+  if (start !== null) durations.push(r.samples.at(-1)!.t + r.intervalMs - start)
+  return durations.map((ms) => ms / 1000)
+}
+
+const episodeStats = (label: RecordingLabel, recordings: Recording[], baseline: Baseline): EpisodeStats => {
+  const durations = recordings.flatMap((r) => episodeDurations(r, baseline)).sort((a, b) => a - b)
+  return {
+    label,
+    count: durations.length,
+    medianSec: percentile(durations, 0.5),
+    p90Sec: percentile(durations, 0.9),
+    maxSec: durations.at(-1) ?? Number.NaN,
+    overHold: durations.filter((d) => d * 1000 >= TIMING.enterAfterMs).length,
+  }
+}
+
 export const analyze = (recordings: Recording[]): Report => {
   const { baseline, source } = resolveBaseline(recordings)
   const byLabel = new Map<RecordingLabel, Recording[]>()
@@ -151,5 +202,6 @@ export const analyze = (recordings: Recording[]): Report => {
       inferenceHz: mean(runs.map((x) => x.inferenceHz)),
     }
   })
-  return { baselineSource: source, labels, separations, replays }
+  const episodes = [...byLabel].map(([label, rs]) => episodeStats(label, rs, baseline))
+  return { baselineSource: source, labels, separations, replays, episodes }
 }
