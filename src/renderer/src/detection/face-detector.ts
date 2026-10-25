@@ -6,6 +6,12 @@ import type { Point } from '../../../shared/posture/face-geometry'
 
 type Keypoint = Detection['keypoints'][number]
 
+export type FaceDetection = {
+  sample: FaceSample | null
+  box: { x: number; y: number; width: number; height: number }
+  keypoints: Point[]
+}
+
 const assetUrl = (path: string): string => new URL(path, document.baseURI).href
 
 export const createFaceDetector = async (): Promise<FaceDetector> => {
@@ -40,14 +46,23 @@ const largestFace = (detections: Detection[]): Detection | undefined =>
     undefined,
   )
 
-export const detectFace = (detector: FaceDetector, video: HTMLVideoElement): FaceSample | null => {
+const toSample = (face: Detection, width: number, height: number): FaceSample | null => {
+  const [rightEye, leftEye, noseTip, , rightEar, leftEar] = face.keypoints.map((k) => toPixels(k, width, height))
+  if (!rightEye || !leftEye || !noseTip || !rightEar || !leftEar || !face.boundingBox) return null
+  return toFaceSample({ rightEye, leftEye, noseTip, rightEar, leftEar }, face.boundingBox.height / height)
+}
+
+export const detectFace = (detector: FaceDetector, video: HTMLVideoElement): FaceDetection | null => {
   const { videoWidth: width, videoHeight: height } = video
   if (width === 0 || height === 0) return null
 
   const face = largestFace(detector.detectForVideo(captureFrame(video, width, height), performance.now()).detections)
   if (!face?.boundingBox) return null
 
-  const [rightEye, leftEye, noseTip, , rightEar, leftEar] = face.keypoints.map((k) => toPixels(k, width, height))
-  if (!rightEye || !leftEye || !noseTip || !rightEar || !leftEar) return null
-  return toFaceSample({ rightEye, leftEye, noseTip, rightEar, leftEar }, face.boundingBox.height / height)
+  const { originX, originY, width: w, height: h } = face.boundingBox
+  return {
+    sample: toSample(face, width, height),
+    box: { x: originX / width, y: originY / height, width: w / width, height: h / height },
+    keypoints: face.keypoints.map((k) => ({ x: k.x, y: k.y })),
+  }
 }

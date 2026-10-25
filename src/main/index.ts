@@ -34,8 +34,8 @@ const tracker = createUsageTracker(randomUUID(), emit)
 
 const createWindow = (): void => {
   mainWindow = new BrowserWindow({
-    width: 420,
-    height: 640,
+    width: 440,
+    height: 820,
     title: '펴부기',
     webPreferences: { preload: join(__dirname, '../preload/index.js'), backgroundThrottling: false },
   })

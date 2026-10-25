@@ -69,3 +69,27 @@ Measured in the dev app on a MacBook (30 runs, 320x240, BlazeFace short-range):
 ### Next
 
 - Record a short labeled session (upright vs. forward head) to measure pitch noise and tune smoothing/weights.
+
+## 2026-10-25 — Usage gating, event queue, report, demo mode
+
+### Done
+
+- Usage is tracked only after calibration (`tracking` state in the engine), so uncalibrated time no longer counts
+  as perfect posture.
+- Event queue in main: anonymous device ID, persistent file queue (write-then-rename, 5,000 cap), batches of up to
+  100 every 10 s or at 20 events, spec response handling (200 / 400 / 413 split / 429 retryAfter / 5xx backoff),
+  flush on quit. Quit uses `app.exit` after the flush because re-entering `quit()` stalled on macOS.
+- MSW mock API (dev only, absent from the production bundle) implementing the spec's validation and summary
+  formulas. A contract test feeds real segment-builder output through the validator.
+- Report tab: flush + summary over IPC, TanStack Query, cached last success, retry, failure toast.
+- Demo mode for recordings: mirrored camera preview with face box, keypoints and the ear-line/nose reference used
+  for pitch; 60 s chart of pitch delta, score with entry/exit thresholds, and each detection tick (fast ticks show
+  the 4 Hz pending window). Detection rate is unchanged in demo mode.
+- 51 unit tests passing.
+
+### Notes
+
+- Scope going forward is the detection model only (accuracy and power). The event queue, mock API and report UI
+  are kept for reference and handed over to the frontend and backend.
+- In a live demo session, the chart showed short head drops (<3 s) staying below the bad-posture hold, and 83
+  detections in 60 s with pending windows, versus 450 at the prototype's fixed 7.5 Hz.

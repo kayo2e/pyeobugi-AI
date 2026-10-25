@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AppEvent } from '../../shared/events'
 import { severityOf } from '../../shared/posture/score'
 import { useDetection } from './detection/useDetection'
+import { FaceOverlay, HistoryChart } from './demo/DemoPanel'
 import { ReportView } from './report/ReportView'
 import type { DetectionView } from './detection/useDetection'
 import { useCalibration } from './store'
@@ -36,6 +37,7 @@ export const App = () => {
   const [video, setVideo] = useState<HTMLVideoElement | null>(null)
   const [log, setLog] = useState<AppEvent[]>([])
   const [tab, setTab] = useState<'detect' | 'report'>('detect')
+  const [demo, setDemo] = useState(false)
   const calibrated = useCalibration((s) => s.baseline !== null)
   const { view, calibrate } = useDetection(video)
 
@@ -44,7 +46,10 @@ export const App = () => {
   return (
     <main className="app">
       <h1>펴부기</h1>
-      <video ref={setVideo} className="camera" muted playsInline />
+      <div className={demo ? 'preview' : 'preview hidden'}>
+        <video ref={setVideo} muted playsInline />
+        {demo && <FaceOverlay view={view} />}
+      </div>
       <nav className="tabs">
         <button type="button" aria-pressed={tab === 'detect'} onClick={() => setTab('detect')}>
           자세
@@ -52,6 +57,10 @@ export const App = () => {
         <button type="button" aria-pressed={tab === 'report'} onClick={() => setTab('report')}>
           리포트
         </button>
+        <label className="demo-toggle">
+          <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
+          데모 모드
+        </label>
       </nav>
       {tab === 'report' ? (
         <ReportView />
@@ -64,6 +73,7 @@ export const App = () => {
           <button type="button" onClick={calibrate} disabled={!view.engine.present}>
             {calibrated ? '기준 다시 잡기' : '기준 잡기'}
           </button>
+          {demo && <HistoryChart view={view} />}
           <ol className="log">
             {log.map((e) => (
               <li key={e.eventId}>{describe(e)}</li>

@@ -5,8 +5,21 @@ import type { EngineState, Transition } from '../../../shared/posture/engine'
 import { useCalibration } from '../store'
 import { closeCamera, openCamera } from './camera'
 import { createFaceDetector, detectFace } from './face-detector'
+import type { FaceDetection } from './face-detector'
 
-export type DetectionView = { engine: EngineState; intervalMs: number; error: string | null }
+export type HistoryPoint = { at: number; pitch: number | null; score: number; bad: boolean; intervalMs: number }
+
+export type DetectionView = {
+  engine: EngineState
+  intervalMs: number
+  error: string | null
+  face: FaceDetection | null
+  history: HistoryPoint[]
+}
+
+const HISTORY_MS = 60_000
+
+const initialView: DetectionView = { engine: initialEngineState, intervalMs: 0, error: null, face: null, history: [] }
 
 const send = (transitions: Transition[]): void => {
   if (transitions.length > 0) window.pyeobugi.sendTransitions(transitions)
@@ -14,7 +27,8 @@ const send = (transitions: Transition[]): void => {
 
 export const useDetection = (video: HTMLVideoElement | null) => {
   const engineRef = useRef<EngineState>(initialEngineState)
-  const [view, setView] = useState<DetectionView>({ engine: initialEngineState, intervalMs: 0, error: null })
+  const historyRef = useRef<HistoryPoint[]>([])
+  const [view, setView] = useState<DetectionView>(initialView)
 
   useEffect(() => {
     if (!video) return
@@ -26,15 +40,18 @@ export const useDetection = (video: HTMLVideoElement | null) => {
     const loop = () => {
       if (cancelled || !detector) return
       const now = Date.now()
-      const { state, transitions } = stepEngine(
-        engineRef.current,
-        { at: now, face: detectFace(detector, video) },
-        useCalibration.getState().baseline,
-      )
+      const face = detectFace(detector, video)
+      const baseline = useCalibration.getState().baseline
+      const { state, transitions } = stepEngine(engineRef.current, { at: now, face: face?.sample ?? null }, baseline)
       engineRef.current = state
       send(transitions)
       const intervalMs = nextIntervalMs(state, now)
-      setView({ engine: state, intervalMs, error: null })
+      const pitch = state.present && state.pitch !== null ? state.pitch - (baseline?.pitch ?? 0) : null
+      historyRef.current = [
+        ...historyRef.current.filter((p) => now - p.at <= HISTORY_MS),
+        { at: now, pitch, score: state.score, bad: state.bad, intervalMs },
+      ]
+      setView({ engine: state, intervalMs, error: null, face, history: historyRef.current })
       timer = window.setTimeout(loop, intervalMs)
     }
 
