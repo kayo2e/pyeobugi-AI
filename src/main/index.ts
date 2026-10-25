@@ -6,12 +6,14 @@ import { IPC } from '../shared/ipc'
 import type { Transition } from '../shared/posture/engine'
 import { createApiClient } from './api/client'
 import { loadOrCreateDeviceId } from './device'
+import { toReportResult } from './report'
 import { createFileQueueStore } from './queue/queue-store'
 import { createSender } from './queue/sender'
 import { createUsageTracker } from './usage/tracker'
 
 const MOCK_BASE_URL = 'https://api.pyeobugi.mock'
 const QUIT_FLUSH_MS = 1500
+const REPORT_FLUSH_MS = 2000
 
 const baseUrl = import.meta.env.MAIN_VITE_API_BASE_URL ?? MOCK_BASE_URL
 const userData = app.getPath('userData')
@@ -58,6 +60,15 @@ ipcMain.on(IPC.transitions, (_event, transitions: Transition[]) => {
 ipcMain.on(IPC.calibrated, (_event, isRecalibration: boolean) =>
   tracker.record({ type: 'CALIBRATION_COMPLETED', payload: { isRecalibration } }),
 )
+
+ipcMain.handle(IPC.getReport, async () => {
+  // The spec closes the open segment and flushes before reading, so the report includes the last minute
+  tracker.flush()
+  await sender.flush(REPORT_FLUSH_MS)
+  const result = toReportResult(await api.getSummary())
+  if (!result.ok) console.error('[report] failed', result.status, result.code, `traceId=${result.traceId ?? '-'}`)
+  return result
+})
 
 app.whenReady().then(async () => {
   if (import.meta.env.DEV && baseUrl === MOCK_BASE_URL) {

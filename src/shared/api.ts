@@ -27,3 +27,7 @@ export type HttpResult<T> =
   | { kind: 'ok'; status: number; body: T }
   | { kind: 'error'; status: number; body: ApiErrorBody | null; retryAfterSec: number | null }
   | { kind: 'network'; message: string }
+
+export type ReportResult =
+  | { ok: true; data: ReportSummary }
+  | { ok: false; status: number | null; code: string | null; traceId: string | null; message: string }
