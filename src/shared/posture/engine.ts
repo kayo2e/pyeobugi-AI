@@ -13,6 +13,7 @@ export type Transition =
 
 export type EngineState = {
   present: boolean
+  tracking: boolean
   lastSeenAt: number | null
   lostAt: number | null
   bad: boolean
@@ -41,6 +42,7 @@ export const SMOOTHING_WINDOW = 3
 
 export const initialEngineState: EngineState = {
   present: false,
+  tracking: false,
   lastSeenAt: null,
   lostAt: null,
   bad: false,
@@ -64,7 +66,7 @@ const stepMissing = (state: EngineState, at: number): StepResult => {
   // Absence is dated from the last confirmed face so undetected time is excluded from usage
   const lostAt = state.lastSeenAt
   const transitions: Transition[] = state.bad ? [{ type: 'BAD_EXIT', at: lostAt }] : []
-  transitions.push({ type: 'PRESENCE_LOST', at: lostAt })
+  if (state.tracking) transitions.push({ type: 'PRESENCE_LOST', at: lostAt })
   return { state: { ...initialEngineState, lostAt }, transitions }
 }
 
@@ -90,7 +92,6 @@ const stepPosture = (state: EngineState, at: number, score: number): StepResult 
 export const stepEngine = (state: EngineState, sample: Sample, baseline: Baseline | null): StepResult => {
   if (sample.face === null) return stepMissing(state, sample.at)
 
-  const transitions: Transition[] = state.present ? [] : [{ type: 'PRESENCE_FOUND', at: sample.at }]
   const pitches = pushWindow(state.pitches, sample.face.pitch)
   const sizes = pushWindow(state.sizes, sample.face.size)
   const pitch = mean(pitches)
@@ -106,10 +107,12 @@ export const stepEngine = (state: EngineState, sample: Sample, baseline: Baselin
     size,
   }
 
-  if (baseline === null) return { state: { ...seen, score: 0 }, transitions }
+  if (baseline === null) return { state: { ...seen, score: 0 }, transitions: [] }
 
+  // Usage is only tracked once a baseline exists; uncalibrated time would count as perfect posture
+  const transitions: Transition[] = state.tracking ? [] : [{ type: 'PRESENCE_FOUND', at: sample.at }]
   const score = postureScore(pitch, size, baseline)
-  const posture = stepPosture({ ...seen, score }, sample.at, score)
+  const posture = stepPosture({ ...seen, tracking: true, score }, sample.at, score)
   return { state: posture.state, transitions: [...transitions, ...posture.transitions] }
 }
 

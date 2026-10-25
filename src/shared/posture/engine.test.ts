@@ -90,9 +90,23 @@ describe('stepEngine posture', () => {
     expect(state.bad).toBe(false)
   })
 
-  it('skips posture logic before calibration', () => {
-    const { transitions } = run(series(0, 8000, 250, BAD), initialEngineState, null)
-    expect(transitions).toEqual([{ type: 'PRESENCE_FOUND', at: 0 }])
+  it('does not track usage or posture before calibration', () => {
+    const { state, transitions } = run(series(0, 8000, 250, BAD), initialEngineState, null)
+    expect(transitions).toEqual([])
+    expect(state.present).toBe(true)
+  })
+
+  it('starts tracking on the first sample after calibration', () => {
+    const uncalibrated = run(series(0, 2000, 1000, GOOD), initialEngineState, null)
+    const { transitions } = run([{ at: 3000, face: GOOD }], uncalibrated.state)
+    expect(transitions).toEqual([{ type: 'PRESENCE_FOUND', at: 3000 }])
+  })
+
+  it('reports no absence for a face that was never tracked', () => {
+    const uncalibrated = run(series(0, 2000, 1000, GOOD), initialEngineState, null)
+    const { state, transitions } = run(series(3000, 6000, 1000, null), uncalibrated.state, null)
+    expect(transitions).toEqual([])
+    expect(state.present).toBe(false)
   })
 
   it('closes bad posture on reset', () => {
