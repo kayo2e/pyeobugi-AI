@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "body": {
+    "hasData": false,
+    "generatedAt": "2026-10-25T21:35:00+09:00",
+    "today": {
+      "postureKeepRate": null,
+      "turtleNeckCount": 0,
+      "pomodoroCount": 0,
+      "usageSeconds": 0
+    },
+    "week": {
+      "postureKeepRate": null,
+      "turtleNeckCount": 0,
+      "pomodoroCount": 0,
+      "usageSeconds": 0
+    },
+    "comment": null
+  }
+}

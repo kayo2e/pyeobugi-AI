@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react'
+import type { AppEvent } from '../../shared/events'
+import { severityOf } from '../../shared/posture/score'
+import { useDetection } from './detection/useDetection'
+import { FaceOverlay, HistoryChart } from './demo/DemoPanel'
+import { RecordPanel } from './demo/RecordPanel'
+import { ReportView } from './report/ReportView'
+import type { DetectionView } from './detection/useDetection'
+import { useCalibration } from './store'
+
+const MAX_LOG = 8
+
+const SEVERITY_LABEL = {
+  MILD: '목에 부담 주는 자세 (경증)',
+  MODERATE: '목에 부담 주는 자세 (중등도)',
+  SEVERE: '목에 부담 주는 자세 (중증)',
+} as const
+
+const statusOf = ({ engine, error }: DetectionView, calibrated: boolean): string => {
+  if (error) return `오류: ${error}`
+  if (!engine.present) return '얼굴을 찾는 중…'
+  if (!calibrated) return '바르게 앉아 ‘기준 잡기’를 눌러 주세요'
+  return engine.bad ? SEVERITY_LABEL[severityOf(engine.score)] : '정자세'
+}
+
+const hz = (intervalMs: number): string => (intervalMs ? `${(1000 / intervalMs).toFixed(1)}Hz` : '—')
+
+const describe = (e: AppEvent): string => {
+  const time = e.occurredAt.slice(11, 19)
+  if (e.type === 'USAGE_SEGMENT') {
+    return `${time} ${e.type} ${e.payload.durationSec}s (bad ${e.payload.badDurationSec}s)`
+  }
+  if (e.type === 'POSTURE_BAD') return `${time} ${e.type} ${e.payload.severity}`
+  return `${time} ${e.type}`
+}
+
+export const App = () => {
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null)
+  const [log, setLog] = useState<AppEvent[]>([])
+  const [tab, setTab] = useState<'detect' | 'report'>('detect')
+  const [demo, setDemo] = useState(false)
+  const calibrated = useCalibration((s) => s.baseline !== null)
+  const { view, calibrate, recordStatus, startRecording } = useDetection(video)
+
+  useEffect(() => window.pyeobugi.onEvent((e) => setLog((prev) => [e, ...prev].slice(0, MAX_LOG))), [])
+
+  return (
+    <main className="app">
+      <h1>펴부기</h1>
+      <div className={demo ? 'preview' : 'preview hidden'}>
+        <video ref={setVideo} muted playsInline />
+        {demo && <FaceOverlay view={view} />}
+      </div>
+      <nav className="tabs">
+        <button type="button" aria-pressed={tab === 'detect'} onClick={() => setTab('detect')}>
+          자세
+        </button>
+        <button type="button" aria-pressed={tab === 'report'} onClick={() => setTab('report')}>
+          리포트
+        </button>
+        <label className="demo-toggle">
+          <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
+          데모 모드
+        </label>
+      </nav>
+      {tab === 'report' ? (
+        <ReportView />
+      ) : (
+        <>
+          <p className={view.engine.bad ? 'status bad' : 'status'}>{statusOf(view, calibrated)}</p>
+          <p className="metrics">
+            점수 {calibrated ? view.engine.score.toFixed(1) : '—'} · 감지 {hz(view.intervalMs)}
+          </p>
+          <button type="button" onClick={calibrate} disabled={!view.engine.present}>
+            {calibrated ? '기준 다시 잡기' : '기준 잡기'}
+          </button>
+          {demo && <HistoryChart view={view} />}
+          {demo && <RecordPanel status={recordStatus} onStart={startRecording} />}
+          <ol className="log">
+            {log.map((e) => (
+              <li key={e.eventId}>{describe(e)}</li>
+            ))}
+          </ol>
+        </>
+      )}
+    </main>
+  )
+}

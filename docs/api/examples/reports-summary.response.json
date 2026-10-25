@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "body": {
+    "hasData": true,
+    "generatedAt": "2026-10-25T21:35:00+09:00",
+    "today": {
+      "postureKeepRate": 69,
+      "turtleNeckCount": 0,
+      "pomodoroCount": 1,
+      "usageSeconds": 65
+    },
+    "week": {
+      "postureKeepRate": 38,
+      "turtleNeckCount": 1,
+      "pomodoroCount": 1,
+      "usageSeconds": 175
+    },
+    "comment": {
+      "message": "조금만 더 신경 써 볼까요?",
+      "mood": "NORMAL"
+    }
+  }
+}
