@@ -114,3 +114,45 @@ Measured in the dev app on a MacBook (30 runs, 320x240, BlazeFace short-range):
 
 - Record labeled sessions (2-3 per label, varied lighting and distance) and run `npm run analyze`.
 - Decide on outlier rejection, smoothing window and score weights from those numbers.
+
+## 2026-10-25 — First labeled accuracy run
+
+### Done
+
+- Recorded 6 labeled sessions of 60 s each (one person, one MacBook webcam, same lighting): upright, forward head
+  and looking down, twice each. The second round sat 10-20 cm farther back without recalibrating.
+
+### Results (`npm run analyze`, baseline calibrated in the app before the first session)
+
+| Label | Samples | Face detected | Pitch Δ mean | Pitch std | Frame jitter |
+| --- | --- | --- | --- | --- | --- |
+| Upright | 557 | 100% | 2.2° | 4.6° | 1.3° |
+| Forward head | 562 | 100% | 10.4° | 4.7° | 1.3° |
+| Looking down | 561 | 100% | 20.0° | 5.2° | 2.7° |
+
+| Against upright | Cohen's d | Best threshold | Balanced accuracy |
+| --- | --- | --- | --- |
+| Forward head | 1.76 | 6.7° | 84.8% |
+| Looking down | 3.62 | 8.7° | 99.4% |
+
+Engine replay with the adaptive schedule and current constants:
+
+| Label | Judged bad | POSTURE_BAD events | Inference rate |
+| --- | --- | --- | --- |
+| Upright | 0.0% | 0 | 1.16 Hz |
+| Forward head | 78.4% | 2 | 1.19 Hz |
+| Looking down | 95.0% | 2 | 1.17 Hz |
+
+### Notes
+
+- With the posture held, frame jitter is 1.3°; the 7.4° seen in the earlier unlabeled run was movement.
+- No asin-saturated outliers in these sessions, so outlier rejection stays low priority.
+- Sitting farther back shifted upright pitch by about +5° (session medians -1.7° vs 5.3°) and lowered forward-head
+  pitch (13.0° vs 7.0°), shrinking the margin to the entry threshold. Distance drift is the main risk; a
+  "recalibrate when face size changes a lot" prompt or size-normalized pitch are candidates.
+- Constants were left unchanged on purpose: six minutes from one person is too little to tune on without
+  overfitting.
+
+### Next
+
+- More people and webcams, then revisit the 3 s hold (it caps forward-head coverage) and distance handling.
