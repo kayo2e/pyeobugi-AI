@@ -28,9 +28,9 @@ const describe = (status: RecordStatus, secondsLeft: number | null): string => {
   }
 }
 
-type Props = { status: RecordStatus; onStart: (label: RecordingLabel, durationMs: number) => void }
+type Props = { disabled?: boolean; status: RecordStatus; onStart: (label: RecordingLabel, durationMs: number) => void }
 
-export const RecordPanel = ({ status, onStart }: Props) => {
+export const RecordPanel = ({ status, onStart, disabled = false }: Props) => {
   const [label, setLabel] = useState<RecordingLabel>('UPRIGHT')
   const [seconds, setSeconds] = useState(DURATIONS_SEC[0]!)
   const secondsLeft = useSecondsLeft(status)
@@ -39,21 +39,23 @@ export const RecordPanel = ({ status, onStart }: Props) => {
   return (
     <section className="record">
       <div className="record-controls">
-        <select value={label} disabled={recording} onChange={(e) => setLabel(e.target.value as RecordingLabel)}>
+        <select
+          value={label} disabled={recording || disabled} onChange={(e) => setLabel(e.target.value as RecordingLabel)}
+        >
           {Object.entries(RECORDING_LABELS).map(([value, text]) => (
             <option key={value} value={value}>
               {text}
             </option>
           ))}
         </select>
-        <select value={seconds} disabled={recording} onChange={(e) => setSeconds(Number(e.target.value))}>
+        <select value={seconds} disabled={recording || disabled} onChange={(e) => setSeconds(Number(e.target.value))}>
           {DURATIONS_SEC.map((s) => (
             <option key={s} value={s}>
               {s}초
             </option>
           ))}
         </select>
-        <button type="button" disabled={recording} onClick={() => onStart(label, seconds * 1000)}>
+        <button type="button" disabled={recording || disabled} onClick={() => onStart(label, seconds * 1000)}>
           기록 시작
         </button>
         <button type="button" onClick={() => void window.pyeobugi.openRecordings()}>

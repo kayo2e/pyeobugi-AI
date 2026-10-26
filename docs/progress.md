@@ -186,3 +186,37 @@ Left as is, with reasons:
 
 - With the replay fix, the only upright false alarm (1 event, 8.3% of that session) is in the session recorded
   farther back without recalibrating, the distance-drift risk noted in the accuracy entry.
+
+## 2026-10-26 — Stable calibration and recording-specific evaluation
+
+### Done
+
+- Calibration collects raw samples for at least 5 seconds, temporarily at 2 Hz. It saves median pitch/size only
+  after a stable run (at least 6 samples, pitch range <=6 degrees, size range <=12% of median, no missing sample
+  or gap >1.6 seconds). Failed attempts preserve the previous baseline and offer retry. Recording and calibration
+  cannot run together. These are initial engineering thresholds, not accuracy-tuned values.
+- Geometry rejects non-finite coordinates, eye separation below 8 pixels, saturated asin inputs and invalid face
+  heights. Rejected samples use the existing missing-sample path; sustained rejection excludes that time from
+  usage. This does not add a reliable sideways-face classifier.
+- Analysis uses each recording's saved baseline throughout signal statistics, separation, replay and episodes.
+  Only uncalibrated recordings use a fallback from uncalibrated UPRIGHT samples. If that fallback is unavailable,
+  analysis fails instead of borrowing a different recording's calibration. Legacy fallback runs must be grouped
+  by person/setup. Replay reapplies geometry checks when raw keypoints are available, otherwise uses stored values.
+- Added false alert count, false-bad duration, unusable sample/time ratios, detection/recovery decision latency,
+  missed bad episodes and unresolved recoveries. Aggregate replay rates are weighted by observed clip duration.
+- Optional local `groundTruth` intervals allow evaluating posture transitions; v1 recordings remain readable.
+  Without annotations, UPRIGHT/FORWARD_HEAD/LOOKING_DOWN assume a constant label from the start of the clip.
+  NOTE_TAKING is not assumed bad or good. Recovery is unavailable without annotated transitions.
+
+### Validation
+
+- Unit tests cover stable/unstable/missing calibration, invalid geometry, per-recording baselines, duration
+  weighting, decision latency, recovery versus absence, annotations and legacy geometry replay.
+- 75 tests across 14 files, TypeScript checking and production build passed.
+- Real-camera accuracy, calibration acceptance rate and power have not been measured for this change.
+
+### Next
+
+- Record several people at varied distances and lighting. Measure false alerts, invalid time and missed episodes
+  together before accepting quality thresholds; rejecting more samples must not be mistaken for better accuracy.
+- Annotate actual transition times to assess recovery delay. Do not infer ground truth from model scores.
