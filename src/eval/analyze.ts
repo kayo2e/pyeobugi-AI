@@ -161,7 +161,7 @@ export const replay = (r: Recording, baseline: Baseline): Omit<ReplayStats, 'lab
     const interval = nextIntervalMs(result.state, t)
     points.push({ at: t, until: Math.min(end, t + interval), bad: result.state.bad, valid: face !== null,
       entered: result.transitions.some((x) => x.type === 'BAD_ENTER'),
-      exited: face !== null && result.transitions.some((x) => x.type === 'BAD_EXIT') })
+      exited: face !== null && result.transitions.some((x) => x.type === 'BAD_EXIT' && x.reason === 'RECOVERED') })
     if (result.state.bad) badMs += Math.min(interval, end - t)
     state = result.state
     inferences += 1

@@ -6,6 +6,10 @@ import type { CalibrationResult } from '../../../shared/posture/calibration'
 import type { Sample } from '../../../shared/posture/engine'
 import type { EngineState, Transition } from '../../../shared/posture/engine'
 import type { RecordingLabel } from '../../../shared/recording'
+import { initialFeedback, updateFeedback } from '../../../shared/posture/feedback'
+import type { PostureFeedback } from '../../../shared/posture/feedback'
+import { initialDistanceState, stepDistance } from '../../../shared/posture/distance'
+import type { DistanceState } from '../../../shared/posture/distance'
 import { useCalibration } from '../store'
 import { attachCamera, closeCamera, requestCamera } from './camera'
 import { createFaceDetector, detectFace } from './face-detector'
@@ -17,6 +21,8 @@ export type HistoryPoint = { at: number; pitch: number | null; score: number; ba
 
 export type DetectionView = {
   engine: EngineState
+  feedback: PostureFeedback
+  distance: DistanceState
   intervalMs: number
   error: string | null
   face: FaceDetection | null
@@ -25,7 +31,10 @@ export type DetectionView = {
 
 const HISTORY_MS = 60_000
 
-const initialView: DetectionView = { engine: initialEngineState, intervalMs: 0, error: null, face: null, history: [] }
+const initialView: DetectionView = {
+  engine: initialEngineState, feedback: initialFeedback, distance: initialDistanceState,
+  intervalMs: 0, error: null, face: null, history: [],
+}
 
 const send = (transitions: Transition[]): void => {
   if (transitions.length > 0) window.pyeobugi.sendTransitions(transitions)
@@ -34,6 +43,8 @@ const send = (transitions: Transition[]): void => {
 export const useDetection = (video: HTMLVideoElement | null) => {
   const calibrationRef = useRef<{ startedAt: number; samples: Sample[] } | null>(null)
   const [calibration, setCalibration] = useState<CalibrationResult | { phase: 'idle' }>({ phase: 'idle' })
+  const feedbackRef = useRef<PostureFeedback>(initialFeedback)
+  const distanceRef = useRef<DistanceState>(initialDistanceState)
   const engineRef = useRef<EngineState>(initialEngineState)
   const historyRef = useRef<HistoryPoint[]>([])
   const recordingRef = useRef<ActiveRecording | null>(null)
@@ -70,6 +81,7 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       if (cancelled || !detector) return
       const now = Date.now()
       const face = detectFace(detector, video)
+      const localTransitions: Transition[] = []
       const activeCalibration = calibrationRef.current
       if (activeCalibration) {
         activeCalibration.samples.push({ at: now, face: face?.sample ?? null })
@@ -82,6 +94,8 @@ export const useDetection = (video: HTMLVideoElement | null) => {
           const reset = resetPosture(engineRef.current, now)
           engineRef.current = reset.state
           send(reset.transitions)
+          localTransitions.push(...reset.transitions)
+          distanceRef.current = initialDistanceState
           window.pyeobugi.calibrationCompleted(isRecalibration)
         }
       }
@@ -89,6 +103,13 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       const { state, transitions } = stepEngine(engineRef.current, { at: now, face: face?.sample ?? null }, baseline)
       engineRef.current = state
       send(transitions)
+      localTransitions.push(...transitions)
+      const feedback = updateFeedback(feedbackRef.current, state, now, face?.sample != null,
+        baseline !== null, localTransitions)
+      feedbackRef.current = feedback
+      const distance = calibrationRef.current ? initialDistanceState
+        : stepDistance(distanceRef.current, now, face?.sample?.size ?? null, baseline)
+      distanceRef.current = distance
       const intervalMs = record(now, face) ? RECORD_INTERVAL_MS
         : calibrationRef.current ? 500 : nextIntervalMs(state, now)
       const pitch = state.present && state.pitch !== null ? state.pitch - (baseline?.pitch ?? 0) : null
@@ -96,7 +117,7 @@ export const useDetection = (video: HTMLVideoElement | null) => {
         ...historyRef.current.filter((p) => now - p.at <= HISTORY_MS),
         { at: now, pitch, score: state.score, bad: state.bad, intervalMs },
       ]
-      setView({ engine: state, intervalMs, error: null, face, history: historyRef.current })
+      setView({ engine: state, feedback, distance, intervalMs, error: null, face, history: historyRef.current })
       timer = window.setTimeout(loop, intervalMs)
     }
 
@@ -104,6 +125,9 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       engineRef.current = initialEngineState
       calibrationRef.current = null
       setCalibration({ phase: 'idle' })
+      distanceRef.current = initialDistanceState
+      feedbackRef.current = { ...initialFeedback, exitSequence: feedbackRef.current.exitSequence }
+      setView({ ...initialView, feedback: feedbackRef.current })
     })
 
     // Attach only after confirming this run is still live, or a discarded StrictMode run could swap in its stream

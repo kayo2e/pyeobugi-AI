@@ -220,3 +220,33 @@ Left as is, with reasons:
 - Record several people at varied distances and lighting. Measure false alerts, invalid time and missed episodes
   together before accepting quality thresholds; rejecting more samples must not be mistaken for better accuracy.
 - Annotate actual transition times to assess recovery delay. Do not infer ground truth from model scores.
+
+## 2026-10-26 — Time-based smoothing and local feedback contract
+
+### Done
+
+- Replaced the 3-sample mean with an elapsed-time EMA (1 second time constant). Equal-duration constant inputs
+  have the same filter response at 1 Hz, 4 Hz and irregular intervals; sampling still limits transition timing.
+  Filters reinitialize after a 3 second observation gap or successful recalibration.
+- Added a local feedback snapshot with pending/bad/recovering/unavailable states, score, severity, bad onset and
+  elapsed duration. BAD_EXIT now distinguishes RECOVERED, FACE_LOST and RECALIBRATED. A monotonic local exit ID
+  lets frontend consumers avoid duplicate recovery rewards. Server event payloads stay unchanged.
+- Added an inline recalibration suggestion after a sustained 25% face-size change for 8 seconds, clearing below
+  15%. Missing observations and long gaps restart the hold. This is a distance proxy, not a posture exemption;
+  the baseline is never adjusted automatically.
+- Integrated feedback states in the existing status text and demo metrics, and documented frontend consumption
+  in `docs/frontend-feedback.md`. Overlay drawing/audio and separate-window transport remain frontend work.
+- Updated replay recovery scoring and API example fixtures for explicit exit reasons.
+
+### Validation
+
+- Added tests for timing invariance, stale-filter reset, feedback reasons/IDs, unavailable-state suppression,
+  distance persistence/hysteresis, interrupted observations and manual recalibration.
+- 87 tests across 16 files, TypeScript checking and production build passed.
+- No new real-camera accuracy or power measurements. The EMA and distance thresholds require labeled sessions
+  before claiming better accuracy; inference scheduling is unchanged outside the existing calibration/recording modes.
+
+### Next
+
+- Compare old/new filter outputs on typing, reading and note-taking recordings with annotated transitions.
+- Integrate capped, gentle vignette rendering and consume only fresh RECOVERED exits for rewards.
