@@ -20,13 +20,18 @@ describe('calibration', () => {
     expect(evaluateCalibration(samples, 0).phase).toBe('failed')
   })
 
-  it('rejects missing faces, invalid values and interrupted sampling', () => {
+  it('tolerates a few dropped or invalid frames but rejects more', () => {
+    const tolerated = stable()
+    tolerated[3]!.face = null
+    tolerated[7]!.face!.pitch = Number.NaN
+    expect(evaluateCalibration(tolerated, 0)).toEqual({ phase: 'complete', baseline: { pitch: 10, size: 0.3 } })
     const missing = stable()
-    missing[3]!.face = null
+    ;[2, 4, 6].forEach((i) => { missing[i]!.face = null })
     expect(evaluateCalibration(missing, 0).phase).toBe('failed')
-    const invalid = stable()
-    invalid[3]!.face!.pitch = Number.NaN
-    expect(evaluateCalibration(invalid, 0).phase).toBe('failed')
+    expect(evaluateCalibration(stable().slice(0, 2).map((s) => ({ ...s, face: null })), 0).phase).toBe('collecting')
+  })
+
+  it('rejects interrupted sampling', () => {
     expect(evaluateCalibration([stable()[0]!, stable()[10]!], 0).phase).toBe('failed')
     expect(evaluateCalibration(stable().map((s) => ({ ...s, at: s.at + 2000 })), 0).phase).toBe('failed')
   })

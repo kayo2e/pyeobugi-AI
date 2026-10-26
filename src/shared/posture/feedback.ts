@@ -19,8 +19,7 @@ export const initialFeedback: PostureFeedback = {
 }
 
 export const updateFeedback = (
-  previous: PostureFeedback, engine: EngineState, at: number, valid: boolean,
-  calibrated: boolean, transitions: Transition[],
+  previous: PostureFeedback, engine: EngineState, at: number, calibrated: boolean, transitions: Transition[],
 ): PostureFeedback => {
   let lastExit = previous.lastExit
   let exitSequence = previous.exitSequence
@@ -29,8 +28,9 @@ export const updateFeedback = (
       lastExit = { id: ++exitSequence, reason: t.reason, occurredAt: t.at, detectedAt: at }
     }
   }
-  const available = valid && engine.present && calibrated
-  const phase: FeedbackPhase = !valid || !engine.present ? 'UNAVAILABLE' : !calibrated ? 'UNCALIBRATED'
+  // A single dropped frame keeps the last state; the engine's own loss timeout decides when feedback stops
+  const available = engine.present && calibrated
+  const phase: FeedbackPhase = !engine.present ? 'UNAVAILABLE' : !calibrated ? 'UNCALIBRATED'
     : engine.bad ? engine.pendingSince !== null ? 'RECOVERING' : 'BAD'
       : engine.pendingSince !== null ? 'PENDING_BAD' : 'GOOD'
   return {

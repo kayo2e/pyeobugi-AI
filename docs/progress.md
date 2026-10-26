@@ -250,3 +250,24 @@ Left as is, with reasons:
 
 - Compare old/new filter outputs on typing, reading and note-taking recordings with annotated transitions.
 - Integrate capped, gentle vignette rendering and consume only fresh RECOVERED exits for rewards.
+
+## 2026-10-26, Review fixes for calibration and feedback (PR #2)
+
+### Done
+
+- Integrated the calibration/evaluation and feedback work from PR #2 into `dev` instead of `main`.
+- Feedback no longer drops to UNAVAILABLE on a single missing or invalid frame. It follows the engine's
+  presence, so brief detector misses keep the current state until the 3 second loss timeout.
+- Calibration tolerates up to 2 missing or invalid frames out of about 10. Median and stability ranges use only
+  usable frames; sampling gaps and fewer than 6 usable frames still fail.
+- README accuracy table is marked as measured with the old 3-sample mean, not the new EMA.
+
+### Validation
+
+- 88 tests across 16 files, TypeScript checking and production build passed.
+- Not yet checked with a real camera.
+
+### Next
+
+- Re-run `npm run analyze` on the v0.1.0 recordings with the EMA engine and update the README table.
+- Measure the calibration acceptance rate with real cameras before tuning `maxMissing`.

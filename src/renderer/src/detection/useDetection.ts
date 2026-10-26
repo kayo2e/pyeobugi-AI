@@ -104,8 +104,7 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       engineRef.current = state
       send(transitions)
       localTransitions.push(...transitions)
-      const feedback = updateFeedback(feedbackRef.current, state, now, face?.sample != null,
-        baseline !== null, localTransitions)
+      const feedback = updateFeedback(feedbackRef.current, state, now, baseline !== null, localTransitions)
       feedbackRef.current = feedback
       const distance = calibrationRef.current ? initialDistanceState
         : stepDistance(distanceRef.current, now, face?.sample?.size ?? null, baseline)
