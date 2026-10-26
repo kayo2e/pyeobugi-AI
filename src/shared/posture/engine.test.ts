@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { initialEngineState, nextIntervalMs, resetPosture, stepEngine, TIMING } from './engine'
+import { initialEngineState, nextIntervalMs, resetPosture, stepEngine, smoothSignal, TIMING } from './engine'
 import type { EngineState, Sample, Transition } from './engine'
 import { postureScore, severityOf } from './score'
 import type { Baseline } from './score'
@@ -54,7 +54,7 @@ describe('stepEngine presence', () => {
     const bad = run(series(0, 4000, 250, BAD))
     const { transitions } = run(series(5000, 8000, 1000, null), bad.state)
     expect(transitions).toEqual([
-      { type: 'BAD_EXIT', at: 4000 },
+      { type: 'BAD_EXIT', at: 4000, reason: 'FACE_LOST' },
       { type: 'PRESENCE_LOST', at: 4000 },
     ])
   })
@@ -86,7 +86,7 @@ describe('stepEngine posture', () => {
   it('exits after good posture holds, backdated to when the smoothed score recovered', () => {
     const bad = run(series(0, 4000, 250, BAD))
     const { state, transitions } = run(series(5000, 9000, 250, GOOD), bad.state)
-    expect(transitions).toEqual([{ type: 'BAD_EXIT', at: 5500 }])
+    expect(transitions).toEqual([{ type: 'BAD_EXIT', at: 5250, reason: 'RECOVERED' }])
     expect(state.bad).toBe(false)
   })
 
@@ -111,7 +111,7 @@ describe('stepEngine posture', () => {
 
   it('closes bad posture on reset', () => {
     const bad = run(series(0, 4000, 250, BAD))
-    expect(resetPosture(bad.state, 4100).transitions).toEqual([{ type: 'BAD_EXIT', at: 4100 }])
+    expect(resetPosture(bad.state, 4100).transitions).toEqual([{ type: 'BAD_EXIT', at: 4100, reason: 'RECALIBRATED' }])
   })
 })
 
@@ -127,5 +127,44 @@ describe('nextIntervalMs', () => {
     const away = run([...series(0, 1000, 1000, GOOD), ...series(2000, 5000, 1000, null)])
     expect(nextIntervalMs(away.state, 30_000)).toBe(TIMING.idleIntervalMs)
     expect(nextIntervalMs(away.state, 70_000)).toBe(TIMING.awayIntervalMs)
+  })
+})
+
+describe('elapsed-time smoothing', () => {
+  it('has the same step response at 1 Hz, 4 Hz and irregular intervals', () => {
+    const smooth = (intervals: number[]) => intervals.reduce((value, dt) => smoothSignal(value, 20, dt), 0)
+    const oneHz = smooth([1000, 1000])
+    expect(smooth(Array(8).fill(250))).toBeCloseTo(oneHz, 12)
+    expect(smooth([100, 650, 1250])).toBeCloseTo(oneHz, 12)
+    expect(oneHz).toBeCloseTo(20 * (1 - Math.exp(-2)))
+  })
+
+  it('uses elapsed time for both pitch and size in the engine', () => {
+    const initial = run([{ at: 0, face: GOOD }]).state
+    const face = { pitch: 20, size: 0.5 }
+    const slow = run(series(1000, 2000, 1000, face), initial).state
+    const fast = run(series(250, 2000, 250, face), initial).state
+    expect(fast.pitch).toBeCloseTo(slow.pitch!, 12)
+    expect(fast.size).toBeCloseTo(slow.size!, 12)
+  })
+
+  it('initializes fresh signals and ignores zero or negative elapsed time', () => {
+    expect(smoothSignal(null, 20, 0)).toBe(20)
+    expect(smoothSignal(10, 20, 0)).toBe(10)
+    expect(smoothSignal(10, 20, -100)).toBe(10)
+    const pending = run([{ at: 0, face: BAD }]).state
+    const resumed = run([{ at: 10_000, face: BAD }], pending)
+    expect(resumed.state.pitch).toBe(20)
+    expect(resumed.state.bad).toBe(false)
+    expect(resumed.state.pendingSince).toBe(10_000)
+  })
+
+  it('keeps the confirmed bad onset until recovery and clears filters on recalibration', () => {
+    const bad = run(series(0, 4000, 250, BAD)).state
+    expect(bad.badSince).toBe(0)
+    const reset = resetPosture(bad, 4100).state
+    expect(reset.badSince).toBeNull()
+    expect(reset.pitch).toBeNull()
+    expect(run([{ at: 4250, face: GOOD }], reset).state.pitch).toBe(0)
   })
 })

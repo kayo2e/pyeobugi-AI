@@ -57,7 +57,7 @@ describe('client events against the server rules', () => {
       (s) => applyTransition(s, { type: 'PRESENCE_FOUND', at: at('04T23:58:10.4') }),
       (s) => applyTransition(s, { type: 'BAD_ENTER', at: at('04T23:58:30.7'), severity: 'MODERATE' }),
       (s) => tick(s, at('04T23:59:10.9')),
-      (s) => applyTransition(s, { type: 'BAD_EXIT', at: at('05T00:00:20.2') }),
+      (s) => applyTransition(s, { type: 'BAD_EXIT', at: at('05T00:00:20.2'), reason: 'RECOVERED' }),
       (s) => stop(s, at('05T00:05:00.5')),
     ]
     const drafts: EventDraft[] = []
