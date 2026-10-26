@@ -1,6 +1,9 @@
 import type { FaceDetector } from '@mediapipe/tasks-vision'
 import { useEffect, useRef, useState } from 'react'
 import { initialEngineState, nextIntervalMs, resetPosture, stepEngine } from '../../../shared/posture/engine'
+import { evaluateCalibration } from '../../../shared/posture/calibration'
+import type { CalibrationResult } from '../../../shared/posture/calibration'
+import type { Sample } from '../../../shared/posture/engine'
 import type { EngineState, Transition } from '../../../shared/posture/engine'
 import type { RecordingLabel } from '../../../shared/recording'
 import { useCalibration } from '../store'
@@ -29,6 +32,8 @@ const send = (transitions: Transition[]): void => {
 }
 
 export const useDetection = (video: HTMLVideoElement | null) => {
+  const calibrationRef = useRef<{ startedAt: number; samples: Sample[] } | null>(null)
+  const [calibration, setCalibration] = useState<CalibrationResult | { phase: 'idle' }>({ phase: 'idle' })
   const engineRef = useRef<EngineState>(initialEngineState)
   const historyRef = useRef<HistoryPoint[]>([])
   const recordingRef = useRef<ActiveRecording | null>(null)
@@ -65,11 +70,27 @@ export const useDetection = (video: HTMLVideoElement | null) => {
       if (cancelled || !detector) return
       const now = Date.now()
       const face = detectFace(detector, video)
+      const activeCalibration = calibrationRef.current
+      if (activeCalibration) {
+        activeCalibration.samples.push({ at: now, face: face?.sample ?? null })
+        const result = evaluateCalibration(activeCalibration.samples, activeCalibration.startedAt)
+        setCalibration(result)
+        if (result.phase !== 'collecting') calibrationRef.current = null
+        if (result.phase === 'complete') {
+          const isRecalibration = useCalibration.getState().baseline !== null
+          useCalibration.getState().setBaseline(result.baseline)
+          const reset = resetPosture(engineRef.current, now)
+          engineRef.current = reset.state
+          send(reset.transitions)
+          window.pyeobugi.calibrationCompleted(isRecalibration)
+        }
+      }
       const baseline = useCalibration.getState().baseline
       const { state, transitions } = stepEngine(engineRef.current, { at: now, face: face?.sample ?? null }, baseline)
       engineRef.current = state
       send(transitions)
-      const intervalMs = record(now, face) ? RECORD_INTERVAL_MS : nextIntervalMs(state, now)
+      const intervalMs = record(now, face) ? RECORD_INTERVAL_MS
+        : calibrationRef.current ? 500 : nextIntervalMs(state, now)
       const pitch = state.present && state.pitch !== null ? state.pitch - (baseline?.pitch ?? 0) : null
       historyRef.current = [
         ...historyRef.current.filter((p) => now - p.at <= HISTORY_MS),
@@ -81,6 +102,8 @@ export const useDetection = (video: HTMLVideoElement | null) => {
 
     const unsubscribe = window.pyeobugi.onResetEngine(() => {
       engineRef.current = initialEngineState
+      calibrationRef.current = null
+      setCalibration({ phase: 'idle' })
     })
 
     // Attach only after confirming this run is still live, or a discarded StrictMode run could swap in its stream
@@ -100,6 +123,7 @@ export const useDetection = (video: HTMLVideoElement | null) => {
 
     return () => {
       cancelled = true
+      calibrationRef.current = null
       window.clearTimeout(timer)
       unsubscribe()
       closeCamera(stream)
@@ -107,20 +131,14 @@ export const useDetection = (video: HTMLVideoElement | null) => {
     }
   }, [video])
 
-  const calibrate = (): boolean => {
-    const { pitch, size } = engineRef.current
-    if (pitch === null || size === null) return false
-    const isRecalibration = useCalibration.getState().baseline !== null
-    useCalibration.getState().setBaseline({ pitch, size })
-    const { state, transitions } = resetPosture(engineRef.current, Date.now())
-    engineRef.current = state
-    send(transitions)
-    window.pyeobugi.calibrationCompleted(isRecalibration)
-    return true
+  const calibrate = (): void => {
+    if (!engineRef.current.present || calibrationRef.current || recordingRef.current) return
+    calibrationRef.current = { startedAt: Date.now(), samples: [] }
+    setCalibration({ phase: 'collecting', remainingSec: 5 })
   }
 
   const startRecording = (label: RecordingLabel, durationMs: number): void => {
-    if (!video || recordingRef.current) return
+    if (!video || recordingRef.current || calibrationRef.current) return
     recordingRef.current = {
       label,
       startedAt: Date.now(),
@@ -132,5 +150,5 @@ export const useDetection = (video: HTMLVideoElement | null) => {
     setRecordStatus({ phase: 'recording', label, endsAt: Date.now() + durationMs, count: 0 })
   }
 
-  return { view, calibrate, recordStatus, startRecording }
+  return { view, calibrate, calibration, recordStatus, startRecording }
 }

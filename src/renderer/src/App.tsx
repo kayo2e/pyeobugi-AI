@@ -40,7 +40,7 @@ export const App = () => {
   const [tab, setTab] = useState<'detect' | 'report'>('detect')
   const [demo, setDemo] = useState(false)
   const calibrated = useCalibration((s) => s.baseline !== null)
-  const { view, calibrate, recordStatus, startRecording } = useDetection(video)
+  const { view, calibrate, calibration, recordStatus, startRecording } = useDetection(video)
 
   useEffect(() => window.pyeobugi.onEvent((e) => setLog((prev) => [e, ...prev].slice(0, MAX_LOG))), [])
 
@@ -71,11 +71,21 @@ export const App = () => {
           <p className="metrics">
             점수 {calibrated ? view.engine.score.toFixed(1) : '—'} · 감지 {hz(view.intervalMs)}
           </p>
-          <button type="button" onClick={calibrate} disabled={!view.engine.present}>
-            {calibrated ? '기준 다시 잡기' : '기준 잡기'}
+          <button
+            type="button" onClick={calibrate}
+            disabled={!view.engine.present || calibration.phase === 'collecting' || recordStatus.phase === 'recording'}
+          >
+            {calibration.phase === 'collecting' ? '기준 잡는 중…' : calibrated ? '기준 다시 잡기' : '기준 잡기'}
           </button>
+          <p role="status">
+            {calibration.phase === 'collecting' && `바르게 앉아 정면을 봐 주세요. ${calibration.remainingSec}초 남았어요.`}
+            {calibration.phase === 'failed' && calibration.message}
+            {calibration.phase === 'complete' && '기준 자세를 저장했어요.'}
+          </p>
           {demo && <HistoryChart view={view} />}
-          {demo && <RecordPanel status={recordStatus} onStart={startRecording} />}
+          {demo && <RecordPanel
+            status={recordStatus} onStart={startRecording} disabled={calibration.phase === 'collecting'}
+          />}
           <ol className="log">
             {log.map((e) => (
               <li key={e.eventId}>{describe(e)}</li>
