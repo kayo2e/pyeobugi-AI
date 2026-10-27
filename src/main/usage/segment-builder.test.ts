@@ -48,7 +48,7 @@ describe('segment builder', () => {
       { type: 'PRESENCE_FOUND', at: ms('09:22:00') },
       { type: 'BAD_ENTER', at: ms('09:22:40'), severity: 'MODERATE' },
       { type: 'TICK', at: ms('09:23:00') },
-      { type: 'BAD_EXIT', at: ms('09:23:12.600') },
+      { type: 'BAD_EXIT', at: ms('09:23:12.600'), reason: 'RECOVERED' },
       { type: 'STOP', at: ms('09:23:30') },
     ])
     expect(drafts.filter((d) => d.type === 'POSTURE_BAD')).toEqual([
@@ -109,7 +109,7 @@ describe('segment builder', () => {
     const { drafts } = run([
       { type: 'PRESENCE_FOUND', at: ms('09:22:00') },
       { type: 'BAD_ENTER', at: ms('09:22:10'), severity: 'SEVERE' },
-      { type: 'BAD_EXIT', at: ms('09:23:30') },
+      { type: 'BAD_EXIT', at: ms('09:23:30'), reason: 'RECOVERED' },
       { type: 'STOP', at: ms('09:23:40') },
     ])
     expect(segments(drafts).map((s) => [s.durationSec, s.badDurationSec])).toEqual([
