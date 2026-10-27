@@ -9,7 +9,10 @@ export type RecordedFace = {
 
 export type RecordedSample = { t: number; face: RecordedFace | null }
 
+export type PostureTruth = { fromMs: number; toMs: number; posture: 'GOOD' | 'BAD' }
+
 export type Recording = {
+  groundTruth?: PostureTruth[]
   version: 1
   label: RecordingLabel
   startedAt: string

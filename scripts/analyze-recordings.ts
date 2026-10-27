@@ -24,6 +24,12 @@ if (paths.length === 0) {
   process.exit(1)
 }
 
-const recordings = paths.map((p) => JSON.parse(readFileSync(p, 'utf8')) as Recording)
-console.log(`Analyzed ${recordings.length} recordings\n`)
-console.log(formatReport(analyze(recordings)))
+try {
+  const recordings = paths.map((p) => JSON.parse(readFileSync(p, 'utf8')) as Recording)
+  const report = analyze(recordings)
+  console.log(`Analyzed ${recordings.length} recordings\n`)
+  console.log(formatReport(report))
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error))
+  process.exitCode = 1
+}
