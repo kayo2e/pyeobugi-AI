@@ -18,8 +18,11 @@ const QUIT_FLUSH_MS = 1500
 const REPORT_FLUSH_MS = 2000
 
 const baseUrl = import.meta.env.MAIN_VITE_API_BASE_URL ?? MOCK_BASE_URL
+const usesMock = import.meta.env.DEV && baseUrl === MOCK_BASE_URL
 const userData = app.getPath('userData')
-const device = createDeviceSession(userData, (deviceId) => registerDevice(baseUrl, deviceId))
+// Dev and release builds share userData, and a secret issued by the mock would be rejected by the real server for good
+const deviceDir = usesMock ? join(userData, 'mock') : userData
+const device = createDeviceSession(deviceDir, (deviceId) => registerDevice(baseUrl, deviceId))
 const api = createApiClient(baseUrl, device.credentials)
 const sender = createSender(createFileQueueStore(userData), api.postEvents)
 
@@ -79,11 +82,14 @@ ipcMain.handle(IPC.openRecordings, async () => {
 })
 
 app.whenReady().then(async () => {
-  if (import.meta.env.DEV && baseUrl === MOCK_BASE_URL) {
+  if (usesMock) {
     const { startMockServer } = await import('./mock/server')
     startMockServer(MOCK_BASE_URL)
   }
-  device.credentials().catch((e: unknown) => console.error('[device] registration failed', e))
+  void device.credentials().then((result) => {
+    if (result.kind === 'network') console.error('[device] registration failed', result.message)
+    if (result.kind === 'error') console.error('[device] registration failed', result.status, result.body?.code)
+  })
   sender.start()
   void sender.send()
 
