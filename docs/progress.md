@@ -271,3 +271,28 @@ Left as is, with reasons:
 
 - Re-run `npm run analyze` on the v0.1.0 recordings with the EMA engine and update the README table.
 - Measure the calibration acceptance rate with real cameras before tuning `maxMissing`.
+
+## 2026-11-04, Packaged asset loading check
+
+### Done
+
+- Checked the 2026-10-25 concern that `file://` blocks MediaPipe assets. It does not reproduce, so no `app://`
+  protocol was added.
+
+### Validation
+
+Electron 44 on macOS, CPU delegate, production bundle loaded with `loadFile`:
+
+| Run | Model and wasm fetch | Detection loop |
+| --- | --- | --- |
+| Unpacked `out/` | 200 | runs at 1.0 Hz |
+| Hand-built `.app` with `app.asar`, path with spaces and Korean | 200 | runs at 1.0 Hz |
+
+- Not checked: a face detected in the packaged app, a signed build with its own bundle ID, Windows.
+
+### Next
+
+- Choose a packaging tool. The repo has none, so there is no release build yet.
+- Set `MAIN_VITE_API_BASE_URL` for release builds. Without it, events target the mock URL with no mock running and
+  stay in the queue.
+- Add the camera entitlement when signing with the hardened runtime on macOS.
