@@ -323,7 +323,15 @@ Electron 44 on macOS, CPU delegate, production bundle loaded with `loadFile`:
 
 - Not checked against the real server.
 
+### Review fixes
+
+- A failed registration no longer reaches the sender as a batch error, so a 400 cannot discard queued events.
+- A temporary `device.json` read failure no longer replaces the file. Only a missing or unparsable file does.
+- A failed save keeps the secret in memory and retries. The device ID is replaced at most once per run.
+- The dev mock keeps its device file in `userData/mock`, so its secret never reaches the real server.
+
 ### Next
 
+- Add a single-instance lock. Two running apps would overwrite `device.json` and `event-queue.json`.
 - Confirm with the backend how a 401 with a stored secret should recover, and whether existing device IDs can register.
 - Apply the 26-10-27 report changes: `date` query, `today` renamed to `day`, `hourly`. Not implemented in this repo yet.
