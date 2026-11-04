@@ -30,3 +30,24 @@ describe('pitchFromKeypoints', () => {
     expect(toFaceSample({ ...k, leftEye: k.rightEye }, 0.3)).toBeNull()
   })
 })
+
+describe('unreliable geometry', () => {
+  it('rejects saturated angles rather than turning them into valid 90 degree samples', () => {
+    expect(pitchFromKeypoints(face(110 + 96))).toBeNull()
+    expect(pitchFromKeypoints(face(-100))).toBeNull()
+  })
+
+  it('rejects non-finite coordinates, tiny eye separation and invalid face sizes', () => {
+    expect(pitchFromKeypoints(face(Number.NaN))).toBeNull()
+    const small = face(120)
+    small.leftEye = { x: 105, y: 100 }
+    expect(pitchFromKeypoints(small)).toBeNull()
+    for (const size of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 1.1]) {
+      expect(toFaceSample(face(120), size)).toBeNull()
+    }
+  })
+
+  it('preserves usable geometry above the minimum resolution', () => {
+    expect(toFaceSample(face(158), 0.3)?.pitch).toBeCloseTo(30)
+  })
+})

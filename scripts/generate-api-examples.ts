@@ -31,7 +31,7 @@ const steps: ((s: BuilderState) => BuilderResult)[] = [
   (s) => applyTransition(s, { type: 'PRESENCE_FOUND', at: start }),
   (s) => applyTransition(s, { type: 'BAD_ENTER', at: at(-1, -29.3), severity: 'MODERATE' }),
   (s) => tick(s, at(-1, 0.9)),
-  (s) => applyTransition(s, { type: 'BAD_EXIT', at: at(0, 20.2) }),
+  (s) => applyTransition(s, { type: 'BAD_EXIT', at: at(0, 20.2), reason: 'RECOVERED' }),
   (s) => applyTransition(s, { type: 'PRESENCE_LOST', at: at(1, 5.7) }),
   (s) => stop(s, at(1, 30)),
 ]

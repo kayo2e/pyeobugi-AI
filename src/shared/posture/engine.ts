@@ -5,11 +5,13 @@ export type FaceSample = { pitch: number; size: number }
 
 export type Sample = { at: number; face: FaceSample | null }
 
+export type ExitReason = 'RECOVERED' | 'FACE_LOST' | 'RECALIBRATED'
+
 export type Transition =
   | { type: 'PRESENCE_FOUND'; at: number }
   | { type: 'PRESENCE_LOST'; at: number }
   | { type: 'BAD_ENTER'; at: number; severity: Severity }
-  | { type: 'BAD_EXIT'; at: number }
+  | { type: 'BAD_EXIT'; at: number; reason: ExitReason }
 
 export type EngineState = {
   present: boolean
@@ -19,8 +21,7 @@ export type EngineState = {
   bad: boolean
   pendingSince: number | null
   pendingSeverity: Severity | null
-  pitches: number[]
-  sizes: number[]
+  badSince: number | null
   pitch: number | null
   size: number | null
   score: number
@@ -38,7 +39,13 @@ export const TIMING = {
   awaySlowdownAfterMs: 60_000,
 }
 
-export const SMOOTHING_WINDOW = 3
+export const SMOOTHING_TIME_MS = 1000
+
+export const smoothSignal = (previous: number | null, value: number, elapsedMs: number): number => {
+  if (previous === null) return value
+  const alpha = -Math.expm1(-Math.max(0, elapsedMs) / SMOOTHING_TIME_MS)
+  return previous + alpha * (value - previous)
+}
 
 export const initialEngineState: EngineState = {
   present: false,
@@ -48,16 +55,11 @@ export const initialEngineState: EngineState = {
   bad: false,
   pendingSince: null,
   pendingSeverity: null,
-  pitches: [],
-  sizes: [],
+  badSince: null,
   pitch: null,
   size: null,
   score: 0,
 }
-
-const pushWindow = (values: number[], value: number): number[] => [...values, value].slice(-SMOOTHING_WINDOW)
-
-const mean = (values: number[]): number => values.reduce((sum, v) => sum + v, 0) / values.length
 
 const stepMissing = (state: EngineState, at: number): StepResult => {
   if (!state.present || state.lastSeenAt === null || at - state.lastSeenAt < TIMING.lostAfterMs) {
@@ -65,7 +67,7 @@ const stepMissing = (state: EngineState, at: number): StepResult => {
   }
   // Absence is dated from the last confirmed face so undetected time is excluded from usage
   const lostAt = state.lastSeenAt
-  const transitions: Transition[] = state.bad ? [{ type: 'BAD_EXIT', at: lostAt }] : []
+  const transitions: Transition[] = state.bad ? [{ type: 'BAD_EXIT', at: lostAt, reason: 'FACE_LOST' }] : []
   if (state.tracking) transitions.push({ type: 'PRESENCE_LOST', at: lostAt })
   return { state: { ...initialEngineState, lostAt }, transitions }
 }
@@ -82,9 +84,10 @@ const stepPosture = (state: EngineState, at: number, score: number): StepResult 
   // Transitions are backdated to when the change started, so bad-posture time is not cut short by the hold
   const transition: Transition = wantsBad
     ? { type: 'BAD_ENTER', at: pendingSince, severity: pendingSeverity ?? severityOf(score) }
-    : { type: 'BAD_EXIT', at: pendingSince }
+    : { type: 'BAD_EXIT', at: pendingSince, reason: 'RECOVERED' }
   return {
-    state: { ...state, bad: wantsBad, pendingSince: null, pendingSeverity: null },
+    state: { ...state, bad: wantsBad, badSince: wantsBad ? pendingSince : null,
+      pendingSince: null, pendingSeverity: null },
     transitions: [transition],
   }
 }
@@ -92,17 +95,17 @@ const stepPosture = (state: EngineState, at: number, score: number): StepResult 
 export const stepEngine = (state: EngineState, sample: Sample, baseline: Baseline | null): StepResult => {
   if (sample.face === null) return stepMissing(state, sample.at)
 
-  const pitches = pushWindow(state.pitches, sample.face.pitch)
-  const sizes = pushWindow(state.sizes, sample.face.size)
-  const pitch = mean(pitches)
-  const size = mean(sizes)
+  const elapsedMs = state.lastSeenAt === null ? 0 : sample.at - state.lastSeenAt
+  const stale = elapsedMs >= TIMING.lostAfterMs
+  const pitch = smoothSignal(stale ? null : state.pitch, sample.face.pitch, elapsedMs)
+  const size = smoothSignal(stale ? null : state.size, sample.face.size, elapsedMs)
   const seen: EngineState = {
     ...state,
     present: true,
     lastSeenAt: sample.at,
     lostAt: null,
-    pitches,
-    sizes,
+    pendingSince: stale ? null : state.pendingSince,
+    pendingSeverity: stale ? null : state.pendingSeverity,
     pitch,
     size,
   }
@@ -117,8 +120,9 @@ export const stepEngine = (state: EngineState, sample: Sample, baseline: Baselin
 }
 
 export const resetPosture = (state: EngineState, at: number): StepResult => ({
-  state: { ...state, bad: false, pendingSince: null, pendingSeverity: null, score: 0 },
-  transitions: state.bad ? [{ type: 'BAD_EXIT', at }] : [],
+  state: { ...state, bad: false, badSince: null, pendingSince: null, pendingSeverity: null,
+    pitch: null, size: null, score: 0 },
+  transitions: state.bad ? [{ type: 'BAD_EXIT', at, reason: 'RECALIBRATED' }] : [],
 })
 
 export const nextIntervalMs = (state: EngineState, now: number): number => {

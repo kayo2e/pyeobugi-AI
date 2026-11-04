@@ -15,17 +15,20 @@ const NOSE_DEPTH_PER_EYE_DISTANCE = 1.6
 
 const midpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
 
-const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v))
+export const MIN_EYE_DISTANCE_PX = 8
 
 export const pitchFromKeypoints = (k: FaceKeypoints): number | null => {
+  if (Object.values(k).some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null
   const eyeDistance = Math.hypot(k.leftEye.x - k.rightEye.x, k.leftEye.y - k.rightEye.y)
-  if (eyeDistance === 0) return null
+  if (eyeDistance < MIN_EYE_DISTANCE_PX) return null
   // Looking down rotates the nose tip below the ear line; the vertical drop is depth * sin(pitch)
   const drop = (k.noseTip.y - midpoint(k.rightEar, k.leftEar).y) / (eyeDistance * NOSE_DEPTH_PER_EYE_DISTANCE)
-  return (Math.asin(clamp(drop, -1, 1)) * 180) / Math.PI
+  if (!Number.isFinite(drop) || Math.abs(drop) >= 1) return null
+  return (Math.asin(drop) * 180) / Math.PI
 }
 
 export const toFaceSample = (k: FaceKeypoints, faceHeightRatio: number): FaceSample | null => {
+  if (!Number.isFinite(faceHeightRatio) || faceHeightRatio <= 0 || faceHeightRatio > 1) return null
   const pitch = pitchFromKeypoints(k)
   return pitch === null ? null : { pitch, size: faceHeightRatio }
 }

@@ -186,3 +186,88 @@ Left as is, with reasons:
 
 - With the replay fix, the only upright false alarm (1 event, 8.3% of that session) is in the session recorded
   farther back without recalibrating, the distance-drift risk noted in the accuracy entry.
+
+## 2026-10-26 — Stable calibration and recording-specific evaluation
+
+### Done
+
+- Calibration collects raw samples for at least 5 seconds, temporarily at 2 Hz. It saves median pitch/size only
+  after a stable run (at least 6 samples, pitch range <=6 degrees, size range <=12% of median, no missing sample
+  or gap >1.6 seconds). Failed attempts preserve the previous baseline and offer retry. Recording and calibration
+  cannot run together. These are initial engineering thresholds, not accuracy-tuned values.
+- Geometry rejects non-finite coordinates, eye separation below 8 pixels, saturated asin inputs and invalid face
+  heights. Rejected samples use the existing missing-sample path; sustained rejection excludes that time from
+  usage. This does not add a reliable sideways-face classifier.
+- Analysis uses each recording's saved baseline throughout signal statistics, separation, replay and episodes.
+  Only uncalibrated recordings use a fallback from uncalibrated UPRIGHT samples. If that fallback is unavailable,
+  analysis fails instead of borrowing a different recording's calibration. Legacy fallback runs must be grouped
+  by person/setup. Replay reapplies geometry checks when raw keypoints are available, otherwise uses stored values.
+- Added false alert count, false-bad duration, unusable sample/time ratios, detection/recovery decision latency,
+  missed bad episodes and unresolved recoveries. Aggregate replay rates are weighted by observed clip duration.
+- Optional local `groundTruth` intervals allow evaluating posture transitions; v1 recordings remain readable.
+  Without annotations, UPRIGHT/FORWARD_HEAD/LOOKING_DOWN assume a constant label from the start of the clip.
+  NOTE_TAKING is not assumed bad or good. Recovery is unavailable without annotated transitions.
+
+### Validation
+
+- Unit tests cover stable/unstable/missing calibration, invalid geometry, per-recording baselines, duration
+  weighting, decision latency, recovery versus absence, annotations and legacy geometry replay.
+- 75 tests across 14 files, TypeScript checking and production build passed.
+- Real-camera accuracy, calibration acceptance rate and power have not been measured for this change.
+
+### Next
+
+- Record several people at varied distances and lighting. Measure false alerts, invalid time and missed episodes
+  together before accepting quality thresholds; rejecting more samples must not be mistaken for better accuracy.
+- Annotate actual transition times to assess recovery delay. Do not infer ground truth from model scores.
+
+## 2026-10-26 — Time-based smoothing and local feedback contract
+
+### Done
+
+- Replaced the 3-sample mean with an elapsed-time EMA (1 second time constant). Equal-duration constant inputs
+  have the same filter response at 1 Hz, 4 Hz and irregular intervals; sampling still limits transition timing.
+  Filters reinitialize after a 3 second observation gap or successful recalibration.
+- Added a local feedback snapshot with pending/bad/recovering/unavailable states, score, severity, bad onset and
+  elapsed duration. BAD_EXIT now distinguishes RECOVERED, FACE_LOST and RECALIBRATED. A monotonic local exit ID
+  lets frontend consumers avoid duplicate recovery rewards. Server event payloads stay unchanged.
+- Added an inline recalibration suggestion after a sustained 25% face-size change for 8 seconds, clearing below
+  15%. Missing observations and long gaps restart the hold. This is a distance proxy, not a posture exemption;
+  the baseline is never adjusted automatically.
+- Integrated feedback states in the existing status text and demo metrics, and documented frontend consumption
+  in `docs/frontend-feedback.md`. Overlay drawing/audio and separate-window transport remain frontend work.
+- Updated replay recovery scoring and API example fixtures for explicit exit reasons.
+
+### Validation
+
+- Added tests for timing invariance, stale-filter reset, feedback reasons/IDs, unavailable-state suppression,
+  distance persistence/hysteresis, interrupted observations and manual recalibration.
+- 87 tests across 16 files, TypeScript checking and production build passed.
+- No new real-camera accuracy or power measurements. The EMA and distance thresholds require labeled sessions
+  before claiming better accuracy; inference scheduling is unchanged outside the existing calibration/recording modes.
+
+### Next
+
+- Compare old/new filter outputs on typing, reading and note-taking recordings with annotated transitions.
+- Integrate capped, gentle vignette rendering and consume only fresh RECOVERED exits for rewards.
+
+## 2026-10-26, Review fixes for calibration and feedback (PR #2)
+
+### Done
+
+- Integrated the calibration/evaluation and feedback work from PR #2 into `dev` instead of `main`.
+- Feedback no longer drops to UNAVAILABLE on a single missing or invalid frame. It follows the engine's
+  presence, so brief detector misses keep the current state until the 3 second loss timeout.
+- Calibration tolerates up to 2 missing or invalid frames out of about 10. Median and stability ranges use only
+  usable frames; sampling gaps and fewer than 6 usable frames still fail.
+- README accuracy table is marked as measured with the old 3-sample mean, not the new EMA.
+
+### Validation
+
+- 88 tests across 16 files, TypeScript checking and production build passed.
+- Not yet checked with a real camera.
+
+### Next
+
+- Re-run `npm run analyze` on the v0.1.0 recordings with the EMA engine and update the README table.
+- Measure the calibration acceptance rate with real cameras before tuning `maxMissing`.
