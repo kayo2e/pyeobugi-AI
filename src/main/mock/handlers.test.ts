@@ -98,6 +98,29 @@ describe('mock API', () => {
     expect(await api.getSummary()).toMatchObject({ kind: 'ok' })
   })
 
+  it('keeps queued events when registration itself fails with a 400', async () => {
+    const failing = createApiClient(BASE, async () => ({
+      kind: 'error',
+      status: 400,
+      body: { code: 'INVALID_REQUEST', message: '', traceId: 't' },
+      retryAfterSec: null,
+    }))
+    const queue = { saved: [sessionStart(700)], load: () => queue.saved, save: (q: AppEvent[]) => (queue.saved = q) }
+    await createSender(queue, failing.postEvents).send()
+    expect(queue.saved).toHaveLength(1)
+    expect(await failing.getSummary()).toMatchObject({ kind: 'network' })
+  })
+
+  it('passes a rate limit from registration through to the sender', async () => {
+    const limited = createApiClient(BASE, async () => ({
+      kind: 'error',
+      status: 429,
+      body: { code: 'RATE_LIMITED', message: '', traceId: 't' },
+      retryAfterSec: 30,
+    }))
+    expect(await limited.postEvents([sessionStart(701)])).toMatchObject({ status: 429, retryAfterSec: 30 })
+  })
+
   it('lets the dev mock adopt a device remembered from before a restart', async () => {
     const adoptBase = 'https://adopt.test'
     server.use(...createHandlers(adoptBase, { adoptUnknownDevices: true }))
