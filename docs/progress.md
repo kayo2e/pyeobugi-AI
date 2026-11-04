@@ -296,3 +296,34 @@ Electron 44 on macOS, CPU delegate, production bundle loaded with `loadFile`:
 - Set `MAIN_VITE_API_BASE_URL` for release builds. Without it, events target the mock URL with no mock running and
   stay in the queue.
 - Add the camera entitlement when signing with the hardened runtime on macOS.
+
+## 2026-11-04, Device secret authentication
+
+### Done
+
+- Implemented the 26-11-1 spec change: `POST /api/devices/register`, and `X-Device-Secret` on `POST /api/events` and
+  `GET /api/reports/summary`.
+- The secret is stored with the device ID in `userData/device.json` (write-then-rename, mode 600) and stays in the
+  main process.
+- Existing installs register under their current device ID. A 409 moves to a new device ID, as the spec treats a lost
+  secret like a lost ID.
+- Events stay queued while registration fails or the server answers 401. A 401 does not change the device ID.
+- The mock enforces the same rules. The dev mock adopts unknown devices because it forgets them on restart.
+
+### Validation
+
+- 100 tests across 16 files, TypeScript checking and production build passed.
+- Production build over real HTTP against a local stub of the spec:
+
+| Run | Requests | Result |
+| --- | --- | --- |
+| First launch | register 200, events 200 with secret | secret saved, queue empty |
+| Second launch | events 200, no register | same ID and secret |
+| Secret removed, server knows the ID | register 409, register 200 under a new ID, events 200 | new ID saved, queue empty |
+
+- Not checked against the real server.
+
+### Next
+
+- Confirm with the backend how a 401 with a stored secret should recover, and whether existing device IDs can register.
+- Apply the 26-10-27 report changes: `date` query, `today` renamed to `day`, `hourly`. Not implemented in this repo yet.
