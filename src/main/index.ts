@@ -5,8 +5,8 @@ import type { AppEvent } from '../shared/events'
 import { IPC } from '../shared/ipc'
 import type { Transition } from '../shared/posture/engine'
 import type { Recording } from '../shared/recording'
-import { createApiClient } from './api/client'
-import { loadOrCreateDeviceId } from './device'
+import { createApiClient, registerDevice } from './api/client'
+import { createDeviceSession } from './device'
 import { recordingsDir, saveRecording } from './recordings'
 import { toReportResult } from './report'
 import { createFileQueueStore } from './queue/queue-store'
@@ -19,7 +19,8 @@ const REPORT_FLUSH_MS = 2000
 
 const baseUrl = import.meta.env.MAIN_VITE_API_BASE_URL ?? MOCK_BASE_URL
 const userData = app.getPath('userData')
-const api = createApiClient(baseUrl, loadOrCreateDeviceId(userData))
+const device = createDeviceSession(userData, (deviceId) => registerDevice(baseUrl, deviceId))
+const api = createApiClient(baseUrl, device.credentials)
 const sender = createSender(createFileQueueStore(userData), api.postEvents)
 
 let mainWindow: BrowserWindow | null = null
@@ -82,6 +83,7 @@ app.whenReady().then(async () => {
     const { startMockServer } = await import('./mock/server')
     startMockServer(MOCK_BASE_URL)
   }
+  device.credentials().catch((e: unknown) => console.error('[device] registration failed', e))
   sender.start()
   void sender.send()
 

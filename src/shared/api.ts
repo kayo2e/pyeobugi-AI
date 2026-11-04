@@ -6,6 +6,8 @@ export type RejectedEvent = { index: number; eventId?: string; code: RejectedCod
 
 export type PostEventsResponse = { accepted: number; duplicated: number; rejected: RejectedEvent[] }
 
+export type RegisterDeviceResponse = { deviceSecret: string }
+
 export type Mood = 'GOOD' | 'NORMAL' | 'BAD'
 
 export type ReportPeriod = {

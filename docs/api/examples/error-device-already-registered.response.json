@@ -1,0 +1,8 @@
+{
+  "status": 409,
+  "body": {
+    "code": "DEVICE_ALREADY_REGISTERED",
+    "message": "Device is already registered",
+    "traceId": "req-1"
+  }
+}
