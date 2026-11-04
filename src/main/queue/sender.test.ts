@@ -47,6 +47,23 @@ describe('sender', () => {
     expect(store.saved.map((e) => e.eventId)).toEqual(['id-2'])
   })
 
+  it('keeps events and backs off when the device secret is rejected', async () => {
+    const store = memoryStore([event(1)])
+    const post = vi.fn(
+      async (): Promise<HttpResult<PostEventsResponse>> => ({
+        kind: 'error',
+        status: 401,
+        body: { code: 'DEVICE_SECRET_INVALID', message: '', traceId: 't' },
+        retryAfterSec: null,
+      }),
+    )
+    const sender = createSender(store, post, () => 0)
+    await sender.send()
+    await sender.send()
+    expect(store.saved.map((e) => e.eventId)).toEqual(['id-1'])
+    expect(post).toHaveBeenCalledTimes(1)
+  })
+
   it('splits a too-large batch and discards a single oversized event', async () => {
     const store = memoryStore([event(1), event(2), event(3)])
     const post = vi.fn(async (events: AppEvent[]): Promise<HttpResult<PostEventsResponse>> =>
