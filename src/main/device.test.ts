@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -26,6 +26,15 @@ describe('loadOrCreateDevice', () => {
     expect(isUuidV4(deviceId)).toBe(true)
     expect(stored(dir)).toEqual({ deviceId, deviceSecret: null })
     expect(loadOrCreateDevice(dir).deviceId).toBe(deviceId)
+  })
+
+  it('replaces a corrupt file but never one it failed to read', () => {
+    const corrupt = tempDir()
+    writeFileSync(join(corrupt, 'device.json'), '{"deviceId":')
+    expect(isUuidV4(loadOrCreateDevice(corrupt).deviceId)).toBe(true)
+    const unreadable = tempDir()
+    mkdirSync(join(unreadable, 'device.json'))
+    expect(() => loadOrCreateDevice(unreadable)).toThrow()
   })
 })
 
@@ -78,6 +87,35 @@ describe('createDeviceSession', () => {
     const result = await createDeviceSession(tempDir(), register).credentials()
     expect(result).toMatchObject({ kind: 'error', status: 409 })
     expect(register).toHaveBeenCalledTimes(2)
+  })
+
+  it('replaces the device ID at most once across retries', async () => {
+    const dir = tempDir()
+    const register = vi.fn(async (_id: string) => alreadyRegistered)
+    const session = createDeviceSession(dir, register)
+    await session.credentials()
+    const { deviceId } = stored(dir)
+    await session.credentials()
+    expect(stored(dir).deviceId).toBe(deviceId)
+    expect(register).toHaveBeenLastCalledWith(deviceId)
+  })
+
+  it.skipIf(process.platform === 'win32')('keeps an issued secret in memory and retries a failed save', async () => {
+    const dir = tempDir()
+    const register = vi.fn(async () => {
+      chmodSync(dir, 0o500)
+      return issued('secret')
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const session = createDeviceSession(dir, register)
+    expect(await session.credentials()).toMatchObject({ kind: 'ok', body: { deviceSecret: 'secret' } })
+    expect(stored(dir).deviceSecret).toBeNull()
+    expect(error).toHaveBeenCalled()
+    chmodSync(dir, 0o700)
+    error.mockRestore()
+    expect(await session.credentials()).toMatchObject({ kind: 'ok', body: { deviceSecret: 'secret' } })
+    expect(stored(dir).deviceSecret).toBe('secret')
+    expect(register).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the device ID and retries after a failed registration', async () => {
