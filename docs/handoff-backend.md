@@ -7,10 +7,11 @@ API 명세서(노션)를 기준으로 하며, 이 레포는 그 명세를 클라
 
 - 서버가 받는 것은 **익명 이벤트 로그뿐**입니다. 영상, 얼굴, 랜드마크, 각도(pitch), 얼굴 크기, 개인 기준값은
   클라이언트 밖으로 나가지 않습니다.
-- 엔드포인트는 두 개입니다.
+- 엔드포인트는 세 개입니다.
+  - `POST /api/devices/register`: 기기 등록, `deviceSecret` 발급 (기기 ID당 1회)
   - `POST /api/events`: 이벤트 배치 저장 (1~100개, 본문 64KB 이하)
   - `GET /api/reports/summary`: 오늘과 이번 주 지표, 코멘트
-- 인증은 `X-Device-Id` 헤더(UUID v4) 하나입니다. 로그인은 없습니다.
+- 인증은 `X-Device-Id`(UUID v4)와 `X-Device-Secret` 헤더입니다. 등록 API는 `X-Device-Id`만 받습니다. 로그인은 없습니다.
 
 ## 2. 같이 보면 좋은 파일
 
@@ -35,9 +36,17 @@ mock은 개발 모드에서만 켜지고 프로덕션 빌드에는 들어가지 
 | `reports-summary.response.json` | 위 이벤트를 저장한 뒤의 리포트 |
 | `reports-summary-empty.response.json` | 기록이 없는 새 기기 (`hasData: false`) |
 | `error-device-id.response.json` | 잘못된 `X-Device-Id` → 400 `DEVICE_ID_INVALID` |
+| `register-device.response.json` | 기기 등록 성공 (명세의 예시 시크릿) |
+| `error-device-already-registered.response.json` | 같은 기기 ID로 재등록 → 409 `DEVICE_ALREADY_REGISTERED` |
+| `error-device-secret.response.json` | 잘못된 `X-Device-Secret` → 401 `DEVICE_SECRET_INVALID` |
 
 ## 3. 서버가 알아야 할 클라이언트 동작
 
+- **기기 등록**: 시크릿이 없으면 앱 시작 시 등록하고, 실패하면 이벤트를 큐에 둔 채 백오프하며 다시 시도합니다.
+  시크릿은 기기 ID와 함께 `userData/device.json`에 저장하고 메인 프로세스 밖으로 내보내지 않습니다.
+  이미 설치된 기기도 기존 기기 ID로 한 번 등록합니다.
+- **409 `DEVICE_ALREADY_REGISTERED`** 를 받으면 새 기기 ID를 만들어 다시 등록합니다. 이전 기록과는 끊깁니다.
+- **401 `DEVICE_SECRET_INVALID`** 를 받으면 이벤트를 버리지 않고 백오프하며 재시도합니다. 기기 ID를 자동으로 바꾸지 않습니다.
 - **같은 이벤트가 반드시 다시 옵니다.** 네트워크 오류, 5xx, 응답 유실 시 같은 `eventId`로 재전송합니다.
   `(deviceId, eventId)`로 중복을 거르고, 내용이 달라도 덮어쓰지 말고 `duplicated`로 세 주세요.
 - **2xx를 받으면 그 배치는 전부 처리된 것으로 보고 큐에서 지웁니다.** `rejected`된 이벤트는 재시도하지

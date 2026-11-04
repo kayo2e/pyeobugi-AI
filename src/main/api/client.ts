@@ -1,5 +1,12 @@
-import type { ApiErrorBody, HttpResult, PostEventsResponse, ReportSummary } from '../../shared/api'
+import type {
+  ApiErrorBody,
+  HttpResult,
+  PostEventsResponse,
+  RegisterDeviceResponse,
+  ReportSummary,
+} from '../../shared/api'
 import type { AppEvent } from '../../shared/events'
+import type { DeviceCredentials } from '../device'
 
 const TIMEOUT_MS = 10_000
 
@@ -26,15 +33,33 @@ const request = async <T>(url: string, init: RequestInit): Promise<HttpResult<T>
   }
 }
 
-export const createApiClient = (baseUrl: string, deviceId: string) => {
-  const headers = { 'X-Device-Id': deviceId }
+export const registerDevice = (baseUrl: string, deviceId: string) =>
+  request<RegisterDeviceResponse>(`${baseUrl}/api/devices/register`, {
+    method: 'POST',
+    headers: { 'X-Device-Id': deviceId },
+  })
+
+export const createApiClient = (baseUrl: string, credentials: () => Promise<HttpResult<DeviceCredentials>>) => {
+  const authorized = async <T>(call: (headers: Record<string, string>) => Promise<HttpResult<T>>) => {
+    const result = await credentials()
+    if (result.kind === 'network') return result
+    if (result.kind === 'error') {
+      if (result.status === 429) return result
+      // A failed registration says nothing about the batch, so the sender must retry instead of discarding it
+      const message = `Device registration failed: ${result.status} ${result.body?.code ?? ''}`
+      return { kind: 'network' as const, message }
+    }
+    return call({ 'X-Device-Id': result.body.deviceId, 'X-Device-Secret': result.body.deviceSecret })
+  }
   return {
     postEvents: (events: AppEvent[]) =>
-      request<PostEventsResponse>(`${baseUrl}/api/events`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events }),
-      }),
-    getSummary: () => request<ReportSummary>(`${baseUrl}/api/reports/summary`, { headers }),
+      authorized((headers) =>
+        request<PostEventsResponse>(`${baseUrl}/api/events`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ events }),
+        }),
+      ),
+    getSummary: () => authorized((headers) => request<ReportSummary>(`${baseUrl}/api/reports/summary`, { headers })),
   }
 }

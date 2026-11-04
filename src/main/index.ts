@@ -5,8 +5,8 @@ import type { AppEvent } from '../shared/events'
 import { IPC } from '../shared/ipc'
 import type { Transition } from '../shared/posture/engine'
 import type { Recording } from '../shared/recording'
-import { createApiClient } from './api/client'
-import { loadOrCreateDeviceId } from './device'
+import { createApiClient, registerDevice } from './api/client'
+import { createDeviceSession } from './device'
 import { recordingsDir, saveRecording } from './recordings'
 import { toReportResult } from './report'
 import { createFileQueueStore } from './queue/queue-store'
@@ -18,8 +18,12 @@ const QUIT_FLUSH_MS = 1500
 const REPORT_FLUSH_MS = 2000
 
 const baseUrl = import.meta.env.MAIN_VITE_API_BASE_URL ?? MOCK_BASE_URL
+const usesMock = import.meta.env.DEV && baseUrl === MOCK_BASE_URL
 const userData = app.getPath('userData')
-const api = createApiClient(baseUrl, loadOrCreateDeviceId(userData))
+// Dev and release builds share userData, and a secret issued by the mock would be rejected by the real server for good
+const deviceDir = usesMock ? join(userData, 'mock') : userData
+const device = createDeviceSession(deviceDir, (deviceId) => registerDevice(baseUrl, deviceId))
+const api = createApiClient(baseUrl, device.credentials)
 const sender = createSender(createFileQueueStore(userData), api.postEvents)
 
 let mainWindow: BrowserWindow | null = null
@@ -78,10 +82,14 @@ ipcMain.handle(IPC.openRecordings, async () => {
 })
 
 app.whenReady().then(async () => {
-  if (import.meta.env.DEV && baseUrl === MOCK_BASE_URL) {
+  if (usesMock) {
     const { startMockServer } = await import('./mock/server')
     startMockServer(MOCK_BASE_URL)
   }
+  void device.credentials().then((result) => {
+    if (result.kind === 'network') console.error('[device] registration failed', result.message)
+    if (result.kind === 'error') console.error('[device] registration failed', result.status, result.body?.code)
+  })
   sender.start()
   void sender.send()
 

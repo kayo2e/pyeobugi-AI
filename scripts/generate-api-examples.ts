@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { setupServer } from 'msw/node'
-import { createApiClient } from '../src/main/api/client'
+import { createApiClient, registerDevice } from '../src/main/api/client'
 import { createHandlers } from '../src/main/mock/handlers'
 import { applyTransition, initialBuilderState, stop, tick } from '../src/main/usage/segment-builder'
 import type { BuilderResult, BuilderState } from '../src/main/usage/segment-builder'
@@ -13,6 +13,7 @@ const BASE = 'https://api.example'
 const DEVICE = '3f2b8c1e-6a4d-4e0b-9b7a-0c1d2e3f4a5b'
 const SESSION = 'a9a9a9a9-0000-4000-8000-0000000000aa'
 const OUT = 'docs/api/examples'
+const EXAMPLE_SECRET = 'Pnhoo8TUCTPMMtuzanMpmZYeheJurOjwrbeSpCWjpJc'
 
 let counter = 0
 const eventId = () => `b1c2d3e4-0000-4000-8000-${String(++counter).padStart(12, '0')}`
@@ -51,11 +52,22 @@ const write = (name: string, value: unknown) => writeFileSync(join(OUT, name), `
 const response = <T>(result: HttpResult<T>) =>
   result.kind === 'network' ? { error: result.message } : { status: result.status, body: result.body }
 
+const clientFor = (deviceId: string, deviceSecret: string) =>
+  createApiClient(BASE, async () => ({ kind: 'ok', status: 200, body: { deviceId, deviceSecret } }))
+
+const register = async (deviceId: string): Promise<string> => {
+  const result = await registerDevice(BASE, deviceId)
+  if (result.kind !== 'ok') throw new Error(`register failed: ${JSON.stringify(result)}`)
+  return result.body.deviceSecret
+}
+
 const main = async () => {
   mkdirSync(OUT, { recursive: true })
   const server = setupServer(...createHandlers(BASE))
   server.listen({ onUnhandledRequest: 'error' })
-  const api = createApiClient(BASE, DEVICE)
+  const api = clientFor(DEVICE, await register(DEVICE))
+  write('register-device.response.json', { status: 200, body: { deviceSecret: EXAMPLE_SECRET } })
+  write('error-device-already-registered.response.json', response(await registerDevice(BASE, DEVICE)))
 
   write('post-events.request.json', { events })
   write('post-events.response.json', response(await api.postEvents(events)))
@@ -67,10 +79,12 @@ const main = async () => {
   write('post-events-mixed.request.json', { events: mixed })
   write('post-events-mixed.response.json', response(await api.postEvents(mixed)))
 
-  const emptyDevice = createApiClient(BASE, 'aaaaaaaa-0000-4000-8000-000000000000')
+  const emptyId = 'aaaaaaaa-0000-4000-8000-000000000000'
+  const emptyDevice = clientFor(emptyId, await register(emptyId))
   write('reports-summary.response.json', response(await api.getSummary()))
   write('reports-summary-empty.response.json', response(await emptyDevice.getSummary()))
-  write('error-device-id.response.json', response(await createApiClient(BASE, 'not-a-uuid').postEvents([events[0]!])))
+  write('error-device-id.response.json', response(await clientFor('not-a-uuid', 'x').postEvents([events[0]!])))
+  write('error-device-secret.response.json', response(await clientFor(DEVICE, 'wrong').postEvents([events[0]!])))
   server.close()
 }
 
